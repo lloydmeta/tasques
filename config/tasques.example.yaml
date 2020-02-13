@@ -1,0 +1,62 @@
+# Example config template
+
+tasques:
+  server:
+    bind_address: localhost:8080
+    logging:
+      # defaults to false; omit if not logging to JSON
+      json: true
+      # omit if not logging to file
+      file: /app/logs/server.log
+      level: info
+    shutdown_timeout: 5s
+    elasticsearch:
+      addresses:
+        - http://localhost:9200
+      user: # Optional; remove if not using any auth
+        name: user
+        password: passw0rd
+    kibana: # Optional; remove if you're not using Kibana and don't want index patterns and dashboards set up
+      address: http://localhost:9200
+      user: # Optional; remove if not using any auth
+        name: user
+        password: passw0rd
+    apm: # Optional; remove if you would prefer to use env variables to configure more thoroughly (overrides them if provided)
+      address: http://apm
+      secret_token: token
+    auth:
+      # Optional; remove if no auth desired
+      basic_auth:
+        - name: user
+          password: passw0rd
+    tasks:
+      defaults:
+        # Default block_for for claims
+        block_for: 3s
+        # Amount of time to wait between looping for claimable tasks
+        block_for_retry_wait: 100ms
+        # How long a worker has before a job times out (and they don't report in)
+        worker_processing_timeout: 30m
+        # Default amount to use for Claims
+        claim_amount: 1
+        # When a claim is made for X items, how many items to search for in order to build a buffer for claims that fail
+        claim_amount_search_multiplier: 5
+        # Default number of retries for Tasks
+        retry_times: 25
+        # Number of times to try to atomically update a Task when encountering a version conflict
+        version_conflict_retry_times: 500
+    recurring: # Settings for recurring server side functions
+      # Settings for the leader lock functionalit
+      leader_lock:
+        # How often the lock loop should run
+        check_interval: 1s
+        # how long to wait before a leader lock claim is considered obsolete (should be longer than check interval
+        report_lag_tolerance: 5s
+      # Settings for the timed out task reaping functionality
+      timed_out_tasks_reaper:
+        # How long to wait between runs
+        run_interval: 15s
+        # ES search scroll size for finding expired tasks
+        scroll_size: 300
+        # How long the scroll should last
+        scroll_ttl: 1m

@@ -1,0 +1,15 @@
+cipher_worker:
+  queue: messages_and_ciphers
+  tasques_worker:
+    id: worker-id-from-cfg #This is unused because we use Viper+Cobra to bind it from a flag, but it is supported
+    server:
+      address: localhost:8080
+    loop_exit_wait: 10s
+    block_for: 5s
+    claim_amount: 1
+elasticsearch:
+  addresses:
+    - http://localhost:9200
+  user:
+    name: user
+    password: passw0rd

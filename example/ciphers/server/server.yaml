@@ -1,0 +1,11 @@
+bind_address: localhost:9000
+cipher_queuer:
+  server:
+    address: localhost:8080
+  queue: messages_and_ciphers
+elasticsearch:
+  addresses:
+    - http://localhost:9200
+  user:
+    name: user
+    password: passw0rd
