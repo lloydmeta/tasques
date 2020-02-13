@@ -1,0 +1,492 @@
+basePath: /
+definitions:
+  common.Body:
+    properties:
+      message:
+        example: Something went wrong :(
+        type: string
+    required:
+    - message
+    type: object
+  common.Metadata:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      modified_at:
+        format: date-time
+        type: string
+      version:
+        $ref: '#/definitions/common.Version'
+        type: object
+    type: object
+  common.Version:
+    properties:
+      primary_term:
+        type: integer
+      seq_num:
+        type: integer
+    type: object
+  task.Args:
+    $ref: '#/definitions/task.JsonObj'
+  task.Claim:
+    properties:
+      amount:
+        example: 1
+        type: integer
+      block_for:
+        example: 1s
+        type: string
+      queues:
+        example:
+        - run-later
+        - resize-images
+        items:
+          type: string
+        type: array
+    required:
+    - queues
+    type: object
+  task.Context:
+    $ref: '#/definitions/task.JsonObj'
+  task.Failure:
+    properties:
+      data:
+        type: object
+    type: object
+  task.JsonObj:
+    additionalProperties: true
+    type: object
+  task.LastClaimed:
+    properties:
+      claimed_at:
+        format: date-time
+        type: string
+      last_report:
+        $ref: '#/definitions/task.Report'
+        type: object
+      result:
+        $ref: '#/definitions/task.Result'
+        type: object
+      times_out_at:
+        format: date-time
+        type: string
+      worker_id:
+        type: string
+    required:
+    - claimed_at
+    - times_out_at
+    - worker_id
+    type: object
+  task.NewReport:
+    properties:
+      data:
+        $ref: '#/definitions/task.ReportedData'
+        type: object
+    type: object
+  task.NewTask:
+    properties:
+      args:
+        type: object
+      context:
+        type: object
+      kind:
+        example: sayHello
+        type: string
+      priority:
+        type: integer
+      processing_timeout:
+        example: 30m
+        type: string
+      queue:
+        example: run-later
+        type: string
+      retry_times:
+        example: 10
+        type: integer
+      run_at:
+        format: date-time
+        type: string
+    required:
+    - kind
+    - queue
+    type: object
+  task.Report:
+    properties:
+      at:
+        format: date-time
+        type: string
+      data:
+        type: object
+    required:
+    - at
+    type: object
+  task.ReportedData:
+    $ref: '#/definitions/task.JsonObj'
+  task.Result:
+    properties:
+      at:
+        format: date-time
+        type: string
+      failure:
+        description: Results. Only one of the following will be filled in at a given
+          time
+        type: object
+      success:
+        type: object
+    required:
+    - at
+    type: object
+  task.Success:
+    properties:
+      data:
+        type: object
+    type: object
+  task.Task:
+    properties:
+      args:
+        type: object
+      attempted:
+        type: integer
+      context:
+        type: object
+      id:
+        type: string
+      kind:
+        example: sayHello
+        type: string
+      last_claimed:
+        $ref: '#/definitions/task.LastClaimed'
+        type: object
+      last_enqueued_at:
+        format: date-time
+        type: string
+      metadata:
+        $ref: '#/definitions/common.Metadata'
+        type: object
+      priority:
+        type: integer
+      processing_timeout:
+        example: 30m
+        type: string
+      queue:
+        example: run-later
+        type: string
+      retry_times:
+        example: 10
+        type: integer
+      run_at:
+        format: date-time
+        type: string
+      state:
+        example: queued
+        type: string
+    required:
+    - attempted
+    - id
+    - kind
+    - last_enqueued_at
+    - metadata
+    - priority
+    - processing_timeout
+    - queue
+    - retry_times
+    - run_at
+    - state
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: A Task queue backed by Elasticsearch
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: Tasques API
+  version: 0.0.1
+paths:
+  /tasques:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new Task
+      operationId: create-task
+      parameters:
+      - description: The request body
+        in: body
+        name: newTask
+        required: true
+        schema:
+          $ref: '#/definitions/task.NewTask'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/task.Task'
+        "400":
+          description: Invalid JSON
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Add a new Task
+      tags:
+      - tasks
+  /tasques/{queue}/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a persisted Task
+      operationId: get-existing-task
+      parameters:
+      - description: The Queue of the Task
+        in: path
+        name: queue
+        required: true
+        type: string
+      - description: The id of the Task
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.Task'
+        "404":
+          description: Task does not exist
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Get a Task
+      tags:
+      - tasks
+  /tasques/claims:
+    post:
+      consumes:
+      - application/json
+      description: Claims a number of existing Tasks.
+      operationId: claim-tasks
+      parameters:
+      - description: Worker ID
+        in: header
+        name: X-TASQUES-WORKER-ID
+        required: true
+        type: string
+      - description: The request body
+        in: body
+        name: claim
+        required: true
+        schema:
+          $ref: '#/definitions/task.Claim'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/task.Task'
+            type: array
+      summary: Claims a number of Tasks
+      tags:
+      - tasks
+  /tasques/claims/{queue}/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Unclaims a claimed Task.
+      operationId: unclaim-existing-task
+      parameters:
+      - description: The Queue of the Task
+        in: path
+        name: queue
+        required: true
+        type: string
+      - description: The id of the Task
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Worker ID
+        in: header
+        name: X-TASQUES-WORKER-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.Task'
+        "400":
+          description: The Task is not currently claimed
+          schema:
+            $ref: '#/definitions/common.Body'
+        "403":
+          description: Worker currently has not claimed the Task
+          schema:
+            $ref: '#/definitions/common.Body'
+        "404":
+          description: Task does not exist
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Unclaims a Task
+      tags:
+      - tasks
+  /tasques/done/{queue}/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Marks a claimed Task as done.
+      operationId: mark-claimed-task-done
+      parameters:
+      - description: The request body
+        in: body
+        name: success
+        required: true
+        schema:
+          $ref: '#/definitions/task.Success'
+      - description: The Queue of the Task
+        in: path
+        name: queue
+        required: true
+        type: string
+      - description: The id of the Task
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Worker ID
+        in: header
+        name: X-TASQUES-WORKER-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.Task'
+        "400":
+          description: The Task is not currently claimed
+          schema:
+            $ref: '#/definitions/common.Body'
+        "403":
+          description: Worker currently has not claimed the Task
+          schema:
+            $ref: '#/definitions/common.Body'
+        "404":
+          description: Task does not exist
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Mark Task as Done
+      tags:
+      - tasks
+  /tasques/failed/{queue}/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Marks a claimed Task as failed.
+      operationId: mark-claimed-task-failed
+      parameters:
+      - description: The request body
+        in: body
+        name: failure
+        required: true
+        schema:
+          $ref: '#/definitions/task.Failure'
+      - description: The Queue of the Task
+        in: path
+        name: queue
+        required: true
+        type: string
+      - description: The id of the Task
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Worker ID
+        in: header
+        name: X-TASQUES-WORKER-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.Task'
+        "400":
+          description: The Task is not currently claimed
+          schema:
+            $ref: '#/definitions/common.Body'
+        "403":
+          description: Worker currently has not claimed the Task
+          schema:
+            $ref: '#/definitions/common.Body'
+        "404":
+          description: Task does not exist
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Mark Task as Failed
+      tags:
+      - tasks
+  /tasques/reports/{queue}/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Reports in on a claimed Task.
+      operationId: report-on-claimed-task
+      parameters:
+      - description: The request body
+        in: body
+        name: newReport
+        required: true
+        schema:
+          $ref: '#/definitions/task.NewReport'
+      - description: The Queue of the Task
+        in: path
+        name: queue
+        required: true
+        type: string
+      - description: The id of the Task
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Worker ID
+        in: header
+        name: X-TASQUES-WORKER-ID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.Task'
+        "400":
+          description: The Task is not currently claimed
+          schema:
+            $ref: '#/definitions/common.Body'
+        "403":
+          description: Worker currently has not claimed the Task
+          schema:
+            $ref: '#/definitions/common.Body'
+        "404":
+          description: Task does not exist
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Reports on a Task
+      tags:
+      - tasks
+securityDefinitions:
+  BasicAuth:
+    type: basic
+swagger: "2.0"
