@@ -349,6 +349,7 @@ top:
 			}
 		}
 	case STOPPED:
+		e.stateLock.Unlock()
 		return // exit
 	default:
 		e.stashedDoc = nil
