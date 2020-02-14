@@ -2,9 +2,9 @@ package validation
 
 import (
 	"github.com/gin-gonic/gin/binding"
+	"github.com/lloydmeta/tasques/internal/domain/queue"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/go-playground/validator.v9"
-	"github.com/lloydmeta/tasques/internal/domain/queue"
 )
 
 func SetUpValidators() {

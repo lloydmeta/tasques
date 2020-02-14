@@ -41,7 +41,8 @@ type Tasks struct {
 
 type TasksDefaults struct {
 	BlockFor                    time.Duration `json:"block_for" mapstructure:"block_for"`
-	BlockForRetryWait           time.Duration `json:"block_for_retry_wait" mapstructure:"block_for_retry_wait"`
+	BlockForRetryMinWait        time.Duration `json:"block_for_retry_min_wait" mapstructure:"block_for_retry_min_wait"`
+	BlockForRetryMaxRetries     uint          `json:"block_for_retry_max_retries" mapstructure:"block_for_retry_max_retries"`
 	WorkerProcessingTimeout     time.Duration `json:"worker_processing_timeout" mapstructure:"worker_processing_timeout"`
 	ClaimAmount                 uint          `json:"claim_amount" mapstructure:"claim_amount"`
 	ClaimAmountSearchMultiplier uint          `json:"claim_amount_search_multiplier" mapstructure:"claim_amount_search_multiplier"`

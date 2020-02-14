@@ -33,8 +33,10 @@ tasques:
       defaults:
         # Default block_for for claims
         block_for: 3s
-        # Amount of time to wait between looping for claimable tasks
-        block_for_retry_wait: 100ms
+        # Min amount of time to wait between looping for claimable tasks per claim request
+        block_for_retry_min_wait: 100ms
+        # Max number of retry loops to run when looking for claimable tasks per claim request
+        block_for_retry_max_retries: 20
         # How long a worker has before a job times out (and they don't report in)
         worker_processing_timeout: 30m
         # Default amount to use for Claims

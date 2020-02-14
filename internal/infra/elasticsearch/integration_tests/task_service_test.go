@@ -25,7 +25,8 @@ func buildService() task.Service {
 		esClient,
 		config.TasksDefaults{
 			BlockFor:                    3 * time.Second,
-			BlockForRetryWait:           10 * time.Millisecond,
+			BlockForRetryMinWait:        10 * time.Millisecond,
+			BlockForRetryMaxRetries:     100,
 			WorkerProcessingTimeout:     15 * time.Minute,
 			ClaimAmount:                 5,
 			ClaimAmountSearchMultiplier: 5,

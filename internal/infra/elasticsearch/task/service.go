@@ -128,14 +128,22 @@ func (e *EsService) Claim(ctx context.Context, workerId worker.Id, queues []queu
 
 	startUTC := e.getUTC()
 
+	retryWait := e.settings.BlockForRetryMinWait
+	if e.settings.BlockForRetryMaxRetries > 0 {
+		evenRetryWait := time.Duration(uint64(blockFor.Nanoseconds())/uint64(e.settings.BlockForRetryMaxRetries)) * time.Nanosecond
+		if evenRetryWait > retryWait {
+			retryWait = evenRetryWait
+		}
+	}
+
 	firstTry := true
 
 	for uint(len(allClaimed)) < desiredTasks && e.getUTC().Sub(startUTC) < blockFor {
 		if !firstTry {
-			time.Sleep(e.settings.BlockForRetryWait)
+			time.Sleep(retryWait)
 		}
 		nextDesiredCount := desiredTasks - uint(len(allClaimed))
-		if claimed, err := e.searchAndClaim(ctx, workerId, queues, nextDesiredCount, startUTC, blockFor); err != nil {
+		if claimed, err := e.searchAndClaim(ctx, workerId, queues, nextDesiredCount, startUTC, blockFor, retryWait); err != nil {
 			return nil, err
 		} else {
 			allClaimed = append(allClaimed, claimed...)
@@ -143,6 +151,24 @@ func (e *EsService) Claim(ctx context.Context, workerId worker.Id, queues []queu
 		}
 	}
 	return allClaimed, nil
+}
+
+// retryWait returns the amount of time to wait between retries, based on settings *and* a given block for duration
+//
+// It does this by first defaulting to the min claim retry wait, but if claim retry max retries count is set greater than 0,
+// calculates the even wait between retries by dividing blockFor by max retries count, and picks the longer duration (
+// between that and min claim retry wait.
+//
+// In all cases, the min claim retry wait is respected, so as to not flood the ES server with requests.
+func (e *EsService) retryWait(reqBlockFor time.Duration) time.Duration {
+	retryWait := e.settings.BlockForRetryMinWait
+	if e.settings.BlockForRetryMaxRetries > 0 {
+		evenRetryWait := time.Duration(uint64(reqBlockFor.Nanoseconds())/uint64(e.settings.BlockForRetryMaxRetries)) * time.Nanosecond
+		if evenRetryWait > retryWait {
+			retryWait = evenRetryWait
+		}
+	}
+	return retryWait
 }
 
 func (e *EsService) ReportIn(ctx context.Context, workerId worker.Id, queue queue.Name, taskId task.Id, newReport task.NewReport) (*task.Task, error) {
@@ -396,19 +422,25 @@ func queueNameFromIndexName(indexName common.IndexName) queue.Name {
 	return queue.Name(strings.TrimPrefix(string(indexName), TasquesQueuePrefix))
 }
 
-func (e *EsService) searchAndClaim(ctx context.Context, workerId worker.Id, queues []queue.Name, desiredTasks uint, startedAtUTC time.Time, blockFor time.Duration) ([]task.Task, error) {
+func (e *EsService) searchAndClaim(ctx context.Context, workerId worker.Id, queues []queue.Name, desiredTasks uint, startedAtUTC time.Time, blockFor time.Duration, retryLoopWait time.Duration) ([]task.Task, error) {
 	var claimed []task.Task
 
 	// Search for unclaimed Tasks
 	searchLimit := e.settings.ClaimAmountSearchMultiplier * desiredTasks
 	var searchResults []task.Task
 	var err error
-	// keep looping if we don't have any results at all and  haven't blown past our blockFor
+	firstTry := true
+	// keep looping if we don't have any results at all and haven't blown past our blockFor, but making sure to sleep
+	// in between so we don't flood ES
 	for len(searchResults) == 0 && e.getUTC().Sub(startedAtUTC) < blockFor {
+		if !firstTry {
+			time.Sleep(retryLoopWait)
+		}
 		searchResults, err = e.searchForClaimables(ctx, queues, searchLimit)
 		if err != nil {
 			return nil, err
 		}
+		firstTry = false
 	}
 
 	/*
