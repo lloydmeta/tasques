@@ -1,0 +1,15 @@
+[package]
+name = "tasques_worker"
+version = "1.0.0"
+authors = ["lloydmeta"]
+edition = '2018'
+
+[dependencies]
+# Allows us to declare traits with async methods
+async-trait = "0.1.24"
+tokio = { version = "0.2", features = ["blocking"] }
+serde = "^1.0"
+log = "0.4"
+
+[dependencies.tasques_client]
+path = "../client"
