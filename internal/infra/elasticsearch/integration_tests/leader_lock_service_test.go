@@ -78,6 +78,6 @@ func Test_EsLeaderLock_Starting_and_Stopping_Multiple(t *testing.T) {
 	assert.False(t, lock2.IsLeader())
 	assert.Eventually(t, func() bool {
 		return lock3.IsLeader()
-	}, 25*time.Second, 300*time.Millisecond, "The survivor should become the leader")
+	}, 5*time.Second, 300*time.Millisecond, "The survivor should become the leader")
 	lock3.Stop()
 }
