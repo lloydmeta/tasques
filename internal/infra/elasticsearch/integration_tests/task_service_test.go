@@ -1134,14 +1134,12 @@ func Test_esTaskService_FailTimedOutTasks(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		seededClaimedTasks := seededClaimedTasks
 		if err := service.ReapTimedOutTasks(context.Background(), 500, 1*time.Minute); err != nil {
-			t.Log(err)
 			return false
 		}
 		ok := true
 		for _, seeded := range seededClaimedTasks {
 			retrieved, err := service.Get(context.Background(), seeded.Queue, seeded.ID)
 			if err != nil {
-				t.Log(err)
 				return false
 			} else {
 				ok = ok && retrieved.State == task.FAILED
