@@ -16,7 +16,7 @@ On `example/ciphers/server`, run `go run main.go`
 
 #### Add some Messages to cipher
 
-Go to [localhost:8081](http://localhost:8081) (default) and create messages, which will create jobs.
+Go to the server at [localhost:9000](http://localhost:9000) (default) and create messages, which will create jobs.
 
 ### Start the Go worker
 
