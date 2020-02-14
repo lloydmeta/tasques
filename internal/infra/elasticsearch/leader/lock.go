@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -70,6 +71,7 @@ type EsLock struct {
 	leaderReportLagTolerance time.Duration
 
 	stashedDoc *esLeaderInfo // could be empty
+	stateLock  sync.Mutex    // used only when we modify the state
 }
 
 // Ignore: this is for tests
@@ -97,6 +99,7 @@ func NewLeaderLock(leaderLockDocId common.DocumentID, client *elasticsearch.Clie
 		loopInterval:             loopInterval,
 		leaderReportLagTolerance: leaderReportLagTolerance,
 		stashedDoc:               nil,
+		stateLock:                sync.Mutex{},
 	}
 }
 
@@ -244,6 +247,7 @@ func (e *EsLock) jostleForLeader(primaryT primaryTerm, seqNo seqNum) (*esLeaderI
 // it feels easier to see all the logic up front when it's like this. Oh, and GOTO because we can.
 func (e *EsLock) loop() {
 top:
+	e.stateLock.Lock()
 	loopStartTime := e.getUTC()
 	ignoreMinLoopInterval := false
 	switch e.getState() {
@@ -348,6 +352,7 @@ top:
 		e.stashedDoc = nil
 		e.setState(CHECKER)
 	}
+	e.stateLock.Unlock()
 	if !ignoreMinLoopInterval {
 		loopEndTime := e.getUTC()
 		waitTime := e.loopInterval - loopEndTime.Sub(loopStartTime)
@@ -359,10 +364,14 @@ top:
 }
 
 func (e *EsLock) Start() {
+	e.stateLock.Lock()
+	defer e.stateLock.Unlock()
 	e.setState(CHECKER)
 	go e.loop()
 }
 func (e *EsLock) Stop() {
+	e.stateLock.Lock()
+	defer e.stateLock.Unlock()
 	e.setState(STOPPED)
 }
 

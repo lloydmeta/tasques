@@ -1,4 +1,4 @@
-## Tasques
+## Tasques [![Build Status](https://travis-ci.org/lloydmeta/tasques.svg?branch=master)](https://travis-ci.org/lloydmeta/tasques) [![codecov](https://codecov.io/gh/lloydmeta/tasques/branch/master/graph/badge.svg)](https://codecov.io/gh/lloydmeta/tasques)
 
 Task queues backed by ES: Tasques.
 
@@ -8,7 +8,7 @@ Some of these may be goals :p
 
 - Easily scalable:
   - Servers are stateless; easily spin more up as needed
-  - The storage engine Elasticsearch. That says it all
+  - The storage engine is Elasticsearch, nuff' said.
 - Tasks can be configured
   - Priority
   - When to run
