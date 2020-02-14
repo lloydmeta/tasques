@@ -26,7 +26,7 @@ var (
 		Short: "Messages and Ciphers",
 		Long:  `CipherQueuer that stashes messages and puts jobs in for ciphering them up.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			server := routing.Server{appConfig}
+			server := routing.Server{Config: appConfig}
 			server.Run()
 		},
 	}

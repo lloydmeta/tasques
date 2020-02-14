@@ -1,0 +1,31 @@
+matrix:
+  include:
+    - language: go
+      go: 1.13.x
+      before_install:
+        - go get -t -v ./...
+      script:
+        - set -e
+        - diff -u <(echo -n) <(gofmt -d -s .)
+        - go vet ./...
+        - go build ./...
+        - example/ciphers/worker-java/gradlew build
+        - go test -tags=integration -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+        - set +e
+      after_success:
+        - bash <(curl -s https://codecov.io/bash)
+    - language: java
+      jdk: openjdk8
+      script:
+        - example/ciphers/worker-java/gradlew build
+    - language: rust
+      rust: nightly
+      script:
+        - set -e
+        - cd example/ciphers/worker-rs
+        - cargo +nightly build
+        - set +e
+  allow_failures:
+    - go: master
+  fast_finish: true
+
