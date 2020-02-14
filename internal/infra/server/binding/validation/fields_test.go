@@ -9,6 +9,10 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/queue"
 )
 
+func init() {
+	SetUpValidators()
+}
+
 func TestQueueNameValidator(t *testing.T) {
 	validate := validator.New()
 	_ = validate.RegisterValidation(QueueNameValidatorTag, QueueNameValidator)

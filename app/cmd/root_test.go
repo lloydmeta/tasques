@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_initConfig(t *testing.T) {
+func Test_init_sequence(t *testing.T) {
 	if wd, err := os.Getwd(); err != nil {
 		t.Error(err)
 	} else {
@@ -15,4 +15,7 @@ func Test_initConfig(t *testing.T) {
 	}
 	initConfig()
 	assert.EqualValues(t, "passw0rd", appConfig.Elasticsearch.User.Password)
+	appConfig.Logging.File = nil // just for testing purposes..
+	configureLogging()
+	configureApm()
 }
