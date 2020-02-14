@@ -18,11 +18,11 @@ On `example/ciphers/server`, run `go run main.go`
 
 Go to [localhost:8081](http://localhost:8081) (default) and create messages, which will create jobs.
 
-### Start the worker
+### Start the Go worker
 
-In `example/ciphers/server`, run `go run main.go --worker-id worker1` replacing `worker1` with a unique worker id 
+In `example/ciphers/worker-go`, run `go run main.go --worker-id worker1` replacing `worker1` with a unique worker id 
 per worker process.
 
 #### Workers in other languages
 
-There are example workers in Java and Rust as well.
+There are example workers in Java and Rust as well (`worker-$lang`)
