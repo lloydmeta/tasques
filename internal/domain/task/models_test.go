@@ -1,6 +1,7 @@
 package task
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -975,6 +976,115 @@ func TestTask_ReportIn(t1 *testing.T) {
 				assert.EqualValues(t1, tt.args.at, task.LastClaimed.LastReport.At)
 				assert.EqualValues(t1, report.Data, task.LastClaimed.LastReport.Data)
 			}
+		})
+	}
+}
+
+func Test_State_JSON_serialising(t1 *testing.T) {
+	type fields struct {
+		State State
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   []byte
+	}{
+		{
+			"queued",
+			fields{
+				State: QUEUED,
+			},
+			[]byte("\"queued\""),
+		},
+		{
+			"claimed",
+			fields{
+				State: CLAIMED,
+			},
+			[]byte("\"claimed\""),
+		},
+		{
+			"failed",
+			fields{
+				State: FAILED,
+			},
+			[]byte("\"failed\""),
+		},
+		{
+			"done",
+			fields{
+				State: DONE,
+			},
+			[]byte("\"done\""),
+		},
+		{
+			"dead",
+			fields{
+				State: DEAD,
+			},
+			[]byte("\"dead\""),
+		},
+	}
+	for _, tt := range tests {
+		t1.Run(tt.name, func(t1 *testing.T) {
+			serialised, err := json.Marshal(tt.fields.State)
+			assert.NoError(t1, err)
+			assert.EqualValues(t1, tt.want, serialised)
+		})
+	}
+}
+
+func Test_State_JSON_deserialising(t1 *testing.T) {
+	type fields struct {
+		bytes []byte
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   State
+	}{
+		{
+			"queued",
+			fields{
+				bytes: []byte("\"queued\""),
+			},
+			QUEUED,
+		},
+		{
+			"claimed",
+			fields{
+				bytes: []byte("\"claimed\""),
+			},
+			CLAIMED,
+		},
+		{
+			"failed",
+			fields{
+				bytes: []byte("\"failed\""),
+			},
+			FAILED,
+		},
+		{
+			"done",
+			fields{
+				bytes: []byte("\"done\""),
+			},
+			DONE,
+		},
+		{
+			"dead",
+			fields{
+				bytes: []byte("\"dead\""),
+			},
+			DEAD,
+		},
+	}
+	for _, tt := range tests {
+		t1.Run(tt.name, func(t1 *testing.T) {
+			var s State
+			err := json.Unmarshal(tt.fields.bytes, &s)
+			assert.NoError(t1, err)
+			assert.EqualValues(t1, tt.want, s)
 		})
 	}
 }
