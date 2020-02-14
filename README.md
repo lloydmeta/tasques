@@ -8,7 +8,7 @@ Some of these may be goals :p
 
 - Easily scalable:
   - Servers are stateless; easily spin more up as needed
-  - The storage engine Elasticsearch. That says it all
+  - The storage engine is Elasticsearch, nuff' said.
 - Tasks can be configured
   - Priority
   - When to run
