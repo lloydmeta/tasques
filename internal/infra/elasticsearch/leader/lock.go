@@ -104,7 +104,7 @@ func NewLeaderLock(leaderLockDocId common.DocumentID, client *elasticsearch.Clie
 }
 
 func (e *EsLock) IsLeader() bool {
-	return state(atomic.LoadUint32((*uint32)(&e.state))) == LEADER
+	return e.getState() == LEADER
 }
 
 func (e *EsLock) getState() state {
@@ -165,6 +165,7 @@ func (e *EsLock) submitNameForLeader() (*esLeaderInfo, error) {
 	if err != nil {
 		return nil, common.ElasticsearchErr{Underlying: err}
 	}
+	defer rawResp.Body.Close()
 	statusCode := rawResp.StatusCode
 	switch {
 	case 200 <= statusCode && statusCode <= 299:
@@ -216,6 +217,7 @@ func (e *EsLock) jostleForLeader(primaryT primaryTerm, seqNo seqNum) (*esLeaderI
 	if err != nil {
 		return nil, common.ElasticsearchErr{Underlying: err}
 	}
+	defer rawResp.Body.Close()
 	statusCode := rawResp.StatusCode
 	switch {
 	case 200 <= statusCode && statusCode <= 299:

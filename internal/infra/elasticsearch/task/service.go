@@ -386,6 +386,7 @@ func (e *EsService) getAndUpdate(ctx context.Context, queue queue.Name, taskId t
 	if err != nil {
 		return nil, common.ElasticsearchErr{Underlying: err}
 	}
+	defer rawResp.Body.Close()
 	respStatus := rawResp.StatusCode
 	switch {
 	case 200 <= respStatus && respStatus <= 299:
