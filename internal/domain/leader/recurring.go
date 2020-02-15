@@ -13,12 +13,12 @@ type RecurringTask struct {
 	// How often to run it
 	interval time.Duration
 	// What to run
-	f func() error
+	f func(isLeader Checker) error
 }
 
 // NewRecurringTask returns a new recurring task (but doesn't run it)
 // Also assumes f is non-nil.
-func NewRecurringTask(name string, interval time.Duration, f func() error) RecurringTask {
+func NewRecurringTask(name string, interval time.Duration, f func(isLeader Checker) error) RecurringTask {
 	return RecurringTask{name: name, interval: interval, f: f}
 }
 
@@ -45,13 +45,9 @@ func (r *RecurringTaskRunner) Start() {
 		go func(task RecurringTask, isStopped func() bool, hasLock func() bool) {
 			for isStopped() {
 				startIterationTime := time.Now().UTC()
-				if hasLock() {
-					err := task.f()
-					if err != nil {
-						log.Error().Err(err).Msgf("Failed when running task [%s]", task.name)
-					}
-				} else {
-					log.Debug().Msgf("Task skipped because we don't have the lock [%s]", task.name)
+				err := task.f(r.leaderLock)
+				if err != nil {
+					log.Error().Err(err).Msgf("Failed when running task [%s]", task.name)
 				}
 				waitTime := task.interval - time.Since(startIterationTime)
 				if waitTime > 0 {

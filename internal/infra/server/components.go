@@ -142,8 +142,13 @@ func buildRecurringRunner(conf config.Recurring, tasksService task.Service, lead
 		leader.NewRecurringTask(
 			"timed-out-task-runner",
 			conf.TimedOutTasksReaper.RunInterval,
-			func() error {
-				return tasksService.ReapTimedOutTasks(context.Background(), conf.TimedOutTasksReaper.ScrollSize, conf.TimedOutTasksReaper.ScrollTtl)
+			func(isLeader leader.Checker) error {
+				if isLeader.IsLeader() {
+					return tasksService.ReapTimedOutTasks(context.Background(), conf.TimedOutTasksReaper.ScrollSize, conf.TimedOutTasksReaper.ScrollTtl)
+				} else {
+					log.Debug().Msg("Task reaper skipped because we don't have the lock.")
+					return nil
+				}
 			},
 		),
 	}

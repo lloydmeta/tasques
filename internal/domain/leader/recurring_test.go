@@ -43,7 +43,7 @@ func TestRecurringTaskRunner_Start(t *testing.T) {
 				NewRecurringTask(
 					"inc",
 					10*time.Millisecond,
-					func() error {
+					func(checker Checker) error {
 						tt.fields.incrementer.incr()
 						return nil
 					},
