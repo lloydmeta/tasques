@@ -1,0 +1,20 @@
+apiVersion: apm.k8s.elastic.co/v1
+kind: ApmServer
+metadata:
+  name: tasques
+  namespace: default
+  labels:
+    infra: tasques-apm
+spec:
+  version: 7.5.2
+  count: 1
+  elasticsearchRef:
+    name: tasques
+  http:
+    service:
+      spec:
+        type: LoadBalancer
+        ports:
+          - port: 8200
+            targetPort: 8200
+            protocol: TCP
