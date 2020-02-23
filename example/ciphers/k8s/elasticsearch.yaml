@@ -26,7 +26,7 @@ spec:
 apiVersion: elasticsearch.k8s.elastic.co/v1
 kind: Elasticsearch
 metadata:
-  name: ciphers-es
+  name: ciphers
   labels:
     infra: ciphers-es
 spec:
