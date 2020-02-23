@@ -15,6 +15,9 @@ spec:
       node.ingest: true
       node.store.allow_mmap: false
   http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
     service:
       spec:
         type: LoadBalancer
@@ -40,6 +43,9 @@ spec:
       node.ingest: true
       node.store.allow_mmap: false
   http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
     service:
       spec:
         type: LoadBalancer

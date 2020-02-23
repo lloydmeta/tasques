@@ -11,6 +11,9 @@ spec:
   elasticsearchRef:
     name: tasques
   http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
     service:
       spec:
         type: LoadBalancer
