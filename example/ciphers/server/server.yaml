@@ -5,7 +5,7 @@ cipher_queuer:
   queue: messages_and_ciphers
 elasticsearch:
   addresses:
-    - http://localhost:9200
-  user:
-    name: user
-    password: passw0rd
+    - http://localhost:9201
+#  user:
+#    name: elastic
+#    password: 9tvf7kp9kxtz5d4tfcd5wglf
