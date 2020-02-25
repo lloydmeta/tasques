@@ -183,7 +183,9 @@ func (e *EsService) NotLoaded(ctx context.Context) ([]recurring.RecurringTask, e
 }
 
 func (e *EsService) Update(ctx context.Context, update *recurring.RecurringTask) (*recurring.RecurringTask, error) {
-	toPersist := e.domainToPersistable(update)
+	now := e.getUTC()
+	update.LoadedAt = nil
+	toPersist := domainToPersistable(update, metadata.ModifiedAt(now))
 	toPersistBytes, err := json.Marshal(toPersist)
 	if err != nil {
 		return nil, common.JsonSerdesErr{Underlying: []error{err}}
@@ -210,6 +212,8 @@ func (e *EsService) Update(ctx context.Context, update *recurring.RecurringTask)
 		}
 		update.Metadata.Version = resp.Version()
 		return update, nil
+	case respStatus == 409:
+		return nil, recurring.InvalidVersion{ID: update.ID}
 	case respStatus == 404:
 		return nil, recurring.NotFound{ID: update.ID}
 	default:
@@ -217,8 +221,15 @@ func (e *EsService) Update(ctx context.Context, update *recurring.RecurringTask)
 	}
 }
 
-func (e *EsService) UpdateMultiple(ctx context.Context, updates []recurring.RecurringTask) (*recurring.MultiUpdateResult, error) {
-	bulkReqBody, err := e.buildTasksBulkUpdateNdJsonBytes(updates)
+func (e *EsService) MarkLoaded(ctx context.Context, toMarks []recurring.RecurringTask) (*recurring.MultiUpdateResult, error) {
+	now := e.getUTC()
+	loadedAt := recurring.LoadedAt(now)
+	modifiedAt := metadata.ModifiedAt(now)
+	for i := 0; i < len(toMarks); i++ {
+		toMark := &toMarks[i]
+		toMark.LoadedAt = &loadedAt
+	}
+	bulkReqBody, err := buildTasksBulkUpdateNdJsonBytes(toMarks, modifiedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +249,7 @@ func (e *EsService) UpdateMultiple(ctx context.Context, updates []recurring.Recu
 		return nil, common.JsonSerdesErr{Underlying: []error{err}}
 	}
 	var multiResult recurring.MultiUpdateResult
-	for updateTargetIdx, updateTarget := range updates {
+	for updateTargetIdx, updateTarget := range toMarks {
 		// This is guaranteed by ES
 		result := response.Items[updateTargetIdx]
 		resultInfo := result.Info()
@@ -443,11 +454,11 @@ func buildNotLoadedSinceSearchBody(pageSize uint) jsonObjMap {
 	}
 }
 
-func (e *EsService) buildTasksBulkUpdateNdJsonBytes(recurringTasks []recurring.RecurringTask) ([]byte, error) {
+func buildTasksBulkUpdateNdJsonBytes(recurringTasks []recurring.RecurringTask, at metadata.ModifiedAt) ([]byte, error) {
 	var errAcc []error
 	var bytesAcc []byte
 	for _, t := range recurringTasks {
-		pair := e.buildUpdateBulkOp(&t)
+		pair := buildUpdateBulkOp(&t, at)
 		opBytes, err := json.Marshal(pair.op)
 		if err != nil {
 			errAcc = append(errAcc, err)
@@ -473,7 +484,7 @@ func (e *EsService) buildTasksBulkUpdateNdJsonBytes(recurringTasks []recurring.R
 	}
 }
 
-func (e *EsService) buildUpdateBulkOp(task *recurring.RecurringTask) updateRecurringTaskBulkOpPair {
+func buildUpdateBulkOp(task *recurring.RecurringTask, at metadata.ModifiedAt) updateRecurringTaskBulkOpPair {
 	return updateRecurringTaskBulkOpPair{
 		op: updateRecurringTaskBulkPairOp{
 			Index: updateRecurringTaskBulkPairOpData{
@@ -483,7 +494,7 @@ func (e *EsService) buildUpdateBulkOp(task *recurring.RecurringTask) updateRecur
 				IfPrimaryTerm: uint64(task.Metadata.Version.PrimaryTerm),
 			},
 		},
-		doc: e.domainToPersistable(task),
+		doc: domainToPersistable(task, at),
 	}
 }
 
@@ -523,8 +534,7 @@ func (e *EsService) newToPersistable(task *recurring.NewRecurringTask) persisted
 	}
 }
 
-func (e *EsService) domainToPersistable(task *recurring.RecurringTask) persistedRecurringTaskData {
-	now := e.getUTC()
+func domainToPersistable(task *recurring.RecurringTask, at metadata.ModifiedAt) persistedRecurringTaskData {
 	return persistedRecurringTaskData{
 		ScheduleExpression: string(task.ScheduleExpression),
 		TaskDefinition:     domainTaskDefToPersistable(&task.TaskDefinition),
@@ -532,7 +542,7 @@ func (e *EsService) domainToPersistable(task *recurring.RecurringTask) persisted
 		LoadedAt:           (*time.Time)(task.LoadedAt),
 		Metadata: common.PersistedMetadata{
 			CreatedAt:  time.Time(task.Metadata.CreatedAt),
-			ModifiedAt: now,
+			ModifiedAt: time.Time(at),
 		},
 	}
 }

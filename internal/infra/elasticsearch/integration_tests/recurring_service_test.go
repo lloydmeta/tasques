@@ -12,6 +12,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lloydmeta/tasques/internal/domain/metadata"
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
@@ -693,6 +694,106 @@ func Test_esRecurringService_NotLoaded(t *testing.T) {
 
 	assertPresence(t, true, expectedPresentIds, notLoaded)
 	assertPresence(t, false, expectedAbsentIds, notLoaded)
+}
+
+func Test_esRecurringService_Update(t *testing.T) {
+	service := buildRecurringTasksService()
+	now := time.Now().UTC()
+	setRecurringTasksServiceClock(t, service, now)
+
+	type args struct {
+		update func() *recurring.RecurringTask
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errType interface{}
+	}{
+		{
+			name: "update a non-existent RecurringTask",
+			args: args{
+				update: func() *recurring.RecurringTask {
+					return &recurring.RecurringTask{
+						ID: "non-existent",
+						Metadata: metadata.Metadata{
+							Version: metadata.Version{
+								SeqNum:      100,
+								PrimaryTerm: 100,
+							},
+						},
+					}
+				},
+			},
+			wantErr: true,
+			errType: recurring.InvalidVersion{}, // ES returns this even if the id doesn't exist..
+		},
+		{
+			name: "update a non-existent RecurringTask with wrong version",
+			args: args{
+				update: func() *recurring.RecurringTask {
+					created, err := service.Create(ctx, &recurring.NewRecurringTask{
+						ID:                 "update-test-1",
+						ScheduleExpression: "* * * * *",
+						TaskDefinition:     recurring.TaskDefinition{},
+					})
+					if err != nil {
+						t.Error(err)
+					}
+					created.Metadata.Version = metadata.Version{
+						SeqNum:      100,
+						PrimaryTerm: 100,
+					}
+					return created
+				},
+			},
+			wantErr: true,
+			errType: recurring.InvalidVersion{},
+		},
+		{
+			name: "update an existent RecurringTask",
+			args: args{
+				update: func() *recurring.RecurringTask {
+					created, err := service.Create(ctx, &recurring.NewRecurringTask{
+						ID:                 "update-test-2",
+						ScheduleExpression: "* * * * *",
+						TaskDefinition:     recurring.TaskDefinition{},
+					})
+					if err != nil {
+						t.Error(err)
+					}
+					created.ScheduleExpression = "0 * * * *"
+					return created
+				},
+			},
+			wantErr: false,
+			errType: nil,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt // for parallelism
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Log(tt.name)
+			updatedForm := tt.args.update()
+			updated, err := service.Update(ctx, updatedForm)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.IsType(t, tt.errType, err, fmt.Sprintf("%v", err))
+			} else {
+				assert.NoError(t, err)
+				assert.Nil(t, updated.LoadedAt)
+				assert.EqualValues(t, updatedForm, updated)
+
+				retrieved, err := service.Get(ctx, updated.ID, false)
+				if err != nil {
+					t.Error(err)
+				}
+				assert.Nil(t, retrieved.LoadedAt)
+				assert.EqualValues(t, updatedForm, retrieved)
+			}
+		})
+	}
 }
 
 func setRecurringTasksServiceClock(t *testing.T, service recurring.Service, frozenTime time.Time) {

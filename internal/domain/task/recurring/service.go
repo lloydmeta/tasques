@@ -35,13 +35,17 @@ type Service interface {
 
 	// Updates multiple RecurringTasks at once and returns a MultiUpdateResult
 	//
+	// Also nils-out the LoadedAt field to make sure the persisted data works within
+	// the expectations of how things are stored.
+	//
 	// An error is returned if there is no such RecurringTask, or if there was a version conflict
 	Update(ctx context.Context, update *RecurringTask) (*RecurringTask, error)
 
-	// Updates multiple RecurringTasks at once and returns a MultiUpdateResult
+	// MarkLoaded sets the LoadedAt field of multiple RecurringTasks to now
+	// at once and returns a MultiUpdateResult.
 	//
 	// An error is returned if the update _completely_ failed.
-	UpdateMultiple(ctx context.Context, updates []RecurringTask) (*MultiUpdateResult, error)
+	MarkLoaded(ctx context.Context, toMarks []RecurringTask) (*MultiUpdateResult, error)
 }
 
 // MultiUpdateResult models a (partial) successful multi update result
