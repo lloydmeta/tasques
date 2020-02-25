@@ -1,3 +1,5 @@
+// +build integration
+
 package integration_tests
 
 import (
@@ -11,6 +13,7 @@ import (
 
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
+	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 	infra "github.com/lloydmeta/tasques/internal/infra/elasticsearch/task/recurring"
 )
 
@@ -303,12 +306,174 @@ func Test_esRecurringService_Create(t *testing.T) {
 				}
 			}
 			got, err := service.Create(ctx, tt.args.toPersist)
-			if err != nil {
-				assert.True(t, tt.wantErr)
+			if tt.wantErr {
+				assert.Error(t, err)
 				assert.IsType(t, tt.errType, err)
 			} else {
+				assert.NoError(t, err)
 				want := tt.buildWant(got)
 				assert.EqualValues(t, &want, got)
+				assert.NotEmpty(t, got.Metadata.CreatedAt)
+				assert.NotEmpty(t, got.Metadata.ModifiedAt)
+			}
+		})
+	}
+}
+
+func Test_esRecurringService_Get(t *testing.T) {
+	service := buildRecurringTasksService()
+	now := time.Now().UTC()
+	setRecurringTasksServiceClock(t, service, now)
+	type args struct {
+		id             recurring.Id
+		includeDeleted bool
+	}
+	tests := []struct {
+		name      string
+		toPersist *recurring.NewRecurringTask
+		setup     func(created *recurring.RecurringTask) error
+		args      args
+		wantErr   bool
+		errType   interface{}
+	}{
+		{
+			name:      "get a non-existent RecurringTask",
+			toPersist: nil,
+			setup:     nil,
+			args: args{
+				id:             "get-non-existent",
+				includeDeleted: true,
+			},
+			wantErr: true,
+			errType: recurring.NotFound{},
+		},
+		{
+			name:      "get an existent but deleted RecurringTask with includeSoftDeleted = false",
+			toPersist: nil,
+			setup: func(created *recurring.RecurringTask) error {
+				existing := JsonObj{
+					"is_deleted": true,
+				}
+				bytesToSend, err := json.Marshal(existing)
+				if err != nil {
+					return err
+				}
+				req := esapi.CreateRequest{
+					Index:      infra.TasquesRecurringTasksIndex,
+					DocumentID: "get-existing-deleted-1",
+					Body:       bytes.NewReader(bytesToSend),
+				}
+				_, err = req.Do(ctx, esClient)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+			args: args{
+				id:             "get-existing-deleted-1",
+				includeDeleted: false,
+			},
+			wantErr: true,
+			errType: recurring.NotFound{},
+		},
+		{
+			name: "get an existent but deleted RecurringTask with includeSoftDeleted = true",
+			toPersist: &recurring.NewRecurringTask{
+				ID:                 "get-existing-deleted-2",
+				ScheduleExpression: "* * * * *",
+				TaskDefinition:     recurring.TaskDefinition{},
+			},
+			setup: func(created *recurring.RecurringTask) error {
+				existing := JsonObj{
+					"doc": JsonObj{
+						"is_deleted": true,
+					},
+				}
+				bytesToSend, err := json.Marshal(existing)
+				if err != nil {
+					return err
+				}
+				req := esapi.UpdateRequest{
+					Index:      infra.TasquesRecurringTasksIndex,
+					DocumentID: "get-existing-deleted-2",
+					Body:       bytes.NewReader(bytesToSend),
+				}
+				rawResp, err := req.Do(ctx, esClient)
+				if err != nil {
+					return err
+				}
+				defer rawResp.Body.Close()
+				var resp common.EsUpdateResponse
+				if err := json.NewDecoder(rawResp.Body).Decode(&resp); err != nil {
+					return err
+				}
+				created.IsDeleted = true
+				created.Metadata.Version = resp.Version()
+				return nil
+			},
+			args: args{
+				id:             "get-existing-deleted-2",
+				includeDeleted: true,
+			},
+			wantErr: false,
+			errType: nil,
+		},
+		{
+			name: "get an existent but RecurringTask with includeSoftDeleted = false",
+			toPersist: &recurring.NewRecurringTask{
+				ID:                 "get-existing-1",
+				ScheduleExpression: "* * * * *",
+				TaskDefinition:     recurring.TaskDefinition{},
+			},
+			setup: nil,
+			args: args{
+				id:             "get-existing-1",
+				includeDeleted: false,
+			},
+			wantErr: false,
+			errType: nil,
+		},
+		{
+			name: "get an existent but RecurringTask with includeSoftDeleted = true",
+			toPersist: &recurring.NewRecurringTask{
+				ID:                 "get-existing-2",
+				ScheduleExpression: "* * * * *",
+				TaskDefinition:     recurring.TaskDefinition{},
+			},
+			setup: nil,
+			args: args{
+				id:             "get-existing-2",
+				includeDeleted: true,
+			},
+			wantErr: false,
+			errType: nil,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt // for parallelism
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Log(tt.name)
+			var created *recurring.RecurringTask
+			if tt.toPersist != nil {
+				r, err := service.Create(ctx, tt.toPersist)
+				assert.NoError(t, err)
+				created = r
+			}
+			if tt.setup != nil {
+				err := tt.setup(created)
+				if err != nil {
+					t.Errorf("Error during setup %v", err)
+					return
+				}
+			}
+			got, err := service.Get(ctx, tt.args.id, tt.args.includeDeleted)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.IsType(t, tt.errType, err)
+			} else {
+				assert.NoError(t, err)
+				assert.EqualValues(t, created, got)
 			}
 		})
 	}
