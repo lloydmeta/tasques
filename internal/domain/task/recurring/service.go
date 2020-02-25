@@ -13,7 +13,7 @@ type Service interface {
 	//
 	// An error is returned if there is already an existing RecurringTask with
 	// the given id
-	Create(ctx context.Context, task NewRecurringTask) (*RecurringTask, error)
+	Create(ctx context.Context, task *NewRecurringTask) (*RecurringTask, error)
 
 	// Retrieves a single RecurringTask, optionally returning soft-deleted tasks.
 	//

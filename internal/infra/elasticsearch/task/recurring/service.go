@@ -26,19 +26,23 @@ type EsService struct {
 	getUTC         func() time.Time // for mocking
 }
 
-func NewService(client *elasticsearch.Client) recurring.Service {
+func (e *EsService) SetUTCGetter(getter func() time.Time) {
+	e.getUTC = getter
+}
+
+func NewService(client *elasticsearch.Client, scrollPageSize uint, scrollTtl time.Duration) recurring.Service {
 	return &EsService{
 		client:         client,
-		scrollPageSize: 500,             // TODO make this configurable
-		scrollTtl:      1 * time.Minute, // TODO make this configurable
+		scrollPageSize: scrollPageSize,
+		scrollTtl:      scrollTtl,
 		getUTC: func() time.Time {
 			return time.Now().UTC()
 		},
 	}
 }
 
-func (e *EsService) Create(ctx context.Context, task recurring.NewRecurringTask) (*recurring.RecurringTask, error) {
-	toPersist := e.newToPersistable(&task)
+func (e *EsService) Create(ctx context.Context, task *recurring.NewRecurringTask) (*recurring.RecurringTask, error) {
+	toPersist := e.newToPersistable(task)
 	toPersistBytes, err := json.Marshal(toPersist)
 	if err != nil {
 		return nil, common.JsonSerdesErr{Underlying: []error{err}}
@@ -100,7 +104,6 @@ func (e *EsService) Create(ctx context.Context, task recurring.NewRecurringTask)
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
 	}
-
 }
 
 func (e *EsService) Get(ctx context.Context, id recurring.Id, includeSoftDeleted bool) (*recurring.RecurringTask, error) {
@@ -505,7 +508,7 @@ type persistedRecurringTaskData struct {
 	ScheduleExpression string                                   `json:"schedule_expression"`
 	TaskDefinition     persistedRecurringTaskTaskDefinitionData `json:"task_definition"`
 	IsDeleted          bool                                     `json:"is_deleted"`
-	LoadedAt           *time.Time                               `json:"loaded_at"`
+	LoadedAt           *time.Time                               `json:"loaded_at,omitempty"`
 	Metadata           common.PersistedMetadata                 `json:"metadata"`
 }
 
