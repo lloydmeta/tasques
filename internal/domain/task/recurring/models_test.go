@@ -28,7 +28,7 @@ func dummyMetatadata() metadata.Metadata {
 
 func TestRecurringTask_UpdateSchedule(t *testing.T) {
 	recurringTask := RecurringTask{
-		Id:                 "test",
+		ID:                 "test",
 		ScheduleExpression: "* * * * *",
 		TaskDefinition:     TaskDefinition{},
 		IsDeleted:          false,
@@ -45,7 +45,7 @@ func TestRecurringTask_UpdateSchedule(t *testing.T) {
 
 func TestRecurringTask_UpdateTaskDefinition(t *testing.T) {
 	recurringTask := RecurringTask{
-		Id:                 "test",
+		ID:                 "test",
 		ScheduleExpression: "* * * * *",
 		TaskDefinition:     TaskDefinition{},
 		IsDeleted:          false,
@@ -74,7 +74,7 @@ func TestRecurringTask_UpdateTaskDefinition(t *testing.T) {
 
 func TestRecurringTask_IntoDeleted(t *testing.T) {
 	recurringTask := RecurringTask{
-		Id:                 "test",
+		ID:                 "test",
 		ScheduleExpression: "* * * * *",
 		TaskDefinition:     TaskDefinition{},
 		IsDeleted:          false,

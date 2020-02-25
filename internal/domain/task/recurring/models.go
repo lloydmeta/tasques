@@ -8,7 +8,7 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/task"
 )
 
-// A user-specifiable Id
+// A user-specifiable RecurringTask Id
 type Id string
 
 // The actual recurring task that gets inserted
@@ -37,7 +37,7 @@ type IsDeleted bool
 // We assume that the ScheduleExpression is valid
 // *before* we persist it
 type NewRecurringTask struct {
-	Id                 Id
+	ID                 Id
 	ScheduleExpression ScheduleExpression
 	TaskDefinition     TaskDefinition
 }
@@ -50,7 +50,7 @@ type NewRecurringTask struct {
 // Given good ES integration is an explicit goal, I *think* at this point
 // that it's ok to leak a bit of that into the domain ..
 type RecurringTask struct {
-	Id                 Id
+	ID                 Id
 	ScheduleExpression ScheduleExpression
 	TaskDefinition     TaskDefinition
 	IsDeleted          IsDeleted

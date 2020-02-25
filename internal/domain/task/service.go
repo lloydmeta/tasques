@@ -71,7 +71,7 @@ type Service interface {
 
 // <-- Domain Errors
 
-// TaskRepoErr is an error interface for TodoRepo
+// ServiceErr is an error interface for Service
 type ServiceErr interface {
 	error
 	Id() Id
