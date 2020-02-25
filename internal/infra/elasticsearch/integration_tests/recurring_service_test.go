@@ -796,6 +796,46 @@ func Test_esRecurringService_Update(t *testing.T) {
 	}
 }
 
+func Test_esRecurringService_MarkLoaded(t *testing.T) {
+	service := buildRecurringTasksService()
+	now := time.Now().UTC()
+	setRecurringTasksServiceClock(t, service, now)
+	seedNumber := scrollPageSize * 2
+	var createds []recurring.RecurringTask
+	for i := uint(0); i < seedNumber; i++ {
+		created, err := service.Create(ctx, &recurring.NewRecurringTask{
+			ID:                 recurring.Id(fmt.Sprintf("mark-loaded-test-%d", i)),
+			ScheduleExpression: "* * * * *",
+			TaskDefinition:     recurring.TaskDefinition{},
+		})
+		assert.NoError(t, err)
+		createds = append(createds, *created)
+	}
+
+	// Sanity check
+	for _, created := range createds {
+		assert.Nil(t, created.LoadedAt)
+	}
+
+	result, err := service.MarkLoaded(ctx, createds)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Len(t, result.Successes, len(createds))
+	assert.Empty(t, result.NotFounds)
+	assert.Empty(t, result.VersionConflicts)
+	assert.Empty(t, result.Others)
+
+	for _, created := range createds {
+		retrieved, err := service.Get(ctx, created.ID, false)
+		if err != nil {
+			t.Error(err)
+		} else {
+			assert.NotNil(t, retrieved.LoadedAt)
+		}
+	}
+}
+
 func setRecurringTasksServiceClock(t *testing.T, service recurring.Service, frozenTime time.Time) {
 	// fast forward time on the time getter
 	esService, ok := service.(*infra.EsService)
