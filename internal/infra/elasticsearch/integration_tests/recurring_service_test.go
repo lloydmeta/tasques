@@ -5,6 +5,7 @@ package integration_tests
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -17,10 +18,12 @@ import (
 	infra "github.com/lloydmeta/tasques/internal/infra/elasticsearch/task/recurring"
 )
 
+var scrollPageSize = uint(10)
+
 func buildRecurringTasksService() recurring.Service {
 	return infra.NewService(
 		esClient,
-		500,
+		scrollPageSize,
 		1*time.Minute,
 	)
 }
@@ -479,6 +482,138 @@ func Test_esRecurringService_Get(t *testing.T) {
 	}
 }
 
+func Test_esRecurringService_Delete(t *testing.T) {
+	service := buildRecurringTasksService()
+	now := time.Now().UTC()
+	setRecurringTasksServiceClock(t, service, now)
+	type args struct {
+		id recurring.Id
+	}
+	tests := []struct {
+		name      string
+		toPersist *recurring.NewRecurringTask
+		setup     func(created *recurring.RecurringTask) error
+		args      args
+		wantErr   bool
+		errType   interface{}
+	}{
+		{
+			name:      "delete a non-existent RecurringTask",
+			toPersist: nil,
+			setup:     nil,
+			args: args{
+				id: "delete-non-existent",
+			},
+			wantErr: true,
+			errType: recurring.NotFound{},
+		},
+		{
+			name:      "delete an existent but soft-deleted RecurringTask",
+			toPersist: nil,
+			setup: func(created *recurring.RecurringTask) error {
+				existing := JsonObj{
+					"is_deleted": true,
+				}
+				bytesToSend, err := json.Marshal(existing)
+				if err != nil {
+					return err
+				}
+				req := esapi.CreateRequest{
+					Index:      infra.TasquesRecurringTasksIndex,
+					DocumentID: "delete-existing-deleted-1",
+					Body:       bytes.NewReader(bytesToSend),
+				}
+				_, err = req.Do(ctx, esClient)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+			args: args{
+				id: "delete-existing-deleted-1",
+			},
+			wantErr: true,
+			errType: recurring.NotFound{},
+		},
+		{
+			name: "delete an existent non soft-deleted RecurringTask",
+			toPersist: &recurring.NewRecurringTask{
+				ID:                 "delete-existing-1",
+				ScheduleExpression: "* * * * *",
+				TaskDefinition:     recurring.TaskDefinition{},
+			},
+			setup: nil,
+			args: args{
+				id: "delete-existing-1",
+			},
+			wantErr: false,
+			errType: nil,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt // for parallelism
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Log(tt.name)
+			var created *recurring.RecurringTask
+			if tt.toPersist != nil {
+				r, err := service.Create(ctx, tt.toPersist)
+				assert.NoError(t, err)
+				created = r
+			}
+			if tt.setup != nil {
+				err := tt.setup(created)
+				if err != nil {
+					t.Errorf("Error during setup %v", err)
+					return
+				}
+			}
+			err := service.Delete(ctx, tt.args.id)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.IsType(t, tt.errType, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_esRecurringService_List(t *testing.T) {
+	service := buildRecurringTasksService()
+	now := time.Now().UTC()
+	setRecurringTasksServiceClock(t, service, now)
+	seedNumber := scrollPageSize * 2
+	var createds []recurring.RecurringTask
+	for i := uint(0); i < seedNumber; i++ {
+		created, err := service.Create(ctx, &recurring.NewRecurringTask{
+			ID:                 recurring.Id(fmt.Sprintf("list-test-%d", i)),
+			ScheduleExpression: "* * * * *",
+			TaskDefinition:     recurring.TaskDefinition{},
+		})
+		assert.NoError(t, err)
+		createds = append(createds, *created)
+	}
+
+	refreshIndices(t)
+
+	all, err := service.All(ctx)
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, uint(len(all)), seedNumber)
+
+	for _, seeded := range createds {
+		idx := -1
+		for i, listed := range all {
+			if listed.ID == seeded.ID {
+				idx = i
+				break
+			}
+		}
+		assert.NotEqual(t, -1, idx, "Not found")
+		assert.EqualValues(t, seeded, all[idx])
+	}
+}
+
 func setRecurringTasksServiceClock(t *testing.T, service recurring.Service, frozenTime time.Time) {
 	// fast forward time on the time getter
 	esService, ok := service.(*infra.EsService)
@@ -489,5 +624,14 @@ func setRecurringTasksServiceClock(t *testing.T, service recurring.Service, froz
 	esService.SetUTCGetter(func() time.Time {
 		return frozenTime
 	})
+}
 
+func refreshIndices(t *testing.T) {
+	refresh := esapi.IndicesRefreshRequest{
+		Index:             []string{infra.TasquesRecurringTasksIndex},
+		AllowNoIndices:    esapi.BoolPtr(true),
+		IgnoreUnavailable: esapi.BoolPtr(true),
+	}
+	_, err := refresh.Do(ctx, esClient)
+	assert.NoError(t, err)
 }
