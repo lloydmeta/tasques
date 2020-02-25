@@ -99,7 +99,11 @@ func (e *EsService) Create(ctx context.Context, task *recurring.NewRecurringTask
 				return nil, common.UnexpectedEsStatusError(rawResp)
 			}
 		} else {
-			return nil, err
+			if err != nil {
+				return nil, err
+			} else {
+				return nil, recurring.AlreadyExists{ID: task.ID}
+			}
 		}
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)

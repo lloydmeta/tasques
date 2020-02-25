@@ -104,7 +104,6 @@ func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time
 	}
 	var domainRunAt task.RunAt
 	if t.RunAt != nil && *t.RunAt != timeZero {
-		fmt.Println("fuck")
 		domainRunAt = task.RunAt(*t.RunAt)
 	} else {
 		domainRunAt = task.RunAt(defaultRunAt)

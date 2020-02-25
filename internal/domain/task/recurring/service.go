@@ -76,6 +76,20 @@ type WrappingErr interface {
 	Unwrap() error
 }
 
+// AlreadyExists is returned when the service tries to create
+// a RecurringTask, but there already exists one with the same ID
+type AlreadyExists struct {
+	ID Id
+}
+
+func (e AlreadyExists) Error() string {
+	return fmt.Sprintf("Could not find [%v]", e.ID)
+}
+
+func (e AlreadyExists) Id() Id {
+	return e.ID
+}
+
 // NotFound is returned when the repo cannot find
 // a repo by a given Id
 type NotFound struct {

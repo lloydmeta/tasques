@@ -1,6 +1,7 @@
 package integration_tests
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 	"time"
@@ -142,7 +143,175 @@ func Test_esRecurringService_verifingPersistedForm(t *testing.T) {
 
 		})
 	}
+}
 
+func Test_esRecurringService_Create(t *testing.T) {
+	service := buildRecurringTasksService()
+	now := time.Now().UTC()
+	setRecurringTasksServiceClock(t, service, now)
+	type args struct {
+		toPersist *recurring.NewRecurringTask
+	}
+	tests := []struct {
+		name  string
+		setup func() error
+		args  args
+
+		buildWant func(got *recurring.RecurringTask) recurring.RecurringTask
+		wantErr   bool
+		errType   interface{}
+	}{
+		{
+			name:  "create a RecurringTask",
+			setup: nil,
+			args: args{
+				toPersist: &recurring.NewRecurringTask{
+					ID:                 "create-test-1",
+					ScheduleExpression: "* * * * *",
+					TaskDefinition: recurring.TaskDefinition{
+						Queue:             "persisted-form-test",
+						RetryTimes:        1,
+						Kind:              "k1",
+						Priority:          2,
+						ProcessingTimeout: task.ProcessingTimeout(3 * time.Second),
+						Args:              nil,
+						Context:           nil,
+					},
+				},
+			},
+			buildWant: func(got *recurring.RecurringTask) recurring.RecurringTask {
+				return recurring.RecurringTask{
+					ID:                 "create-test-1",
+					ScheduleExpression: "* * * * *",
+					TaskDefinition: recurring.TaskDefinition{
+						Queue:             "persisted-form-test",
+						RetryTimes:        1,
+						Kind:              "k1",
+						Priority:          2,
+						ProcessingTimeout: task.ProcessingTimeout(3 * time.Second),
+						Args:              nil,
+						Context:           nil,
+					},
+					IsDeleted: false,
+					LoadedAt:  nil,
+					Metadata:  got.Metadata,
+				}
+			},
+			wantErr: false,
+			errType: nil,
+		},
+		{
+			name: "should fail to create a RecurringTask when there is one with the same id that is not soft-deleted",
+			setup: func() error {
+				existing := JsonObj{
+					"is_deleted": false,
+				}
+				bytesToSend, err := json.Marshal(existing)
+				if err != nil {
+					return err
+				}
+				req := esapi.CreateRequest{
+					Index:      infra.TasquesRecurringTasksIndex,
+					DocumentID: "create-test-2",
+					Body:       bytes.NewReader(bytesToSend),
+				}
+				_, err = req.Do(ctx, esClient)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+			args: args{
+				toPersist: &recurring.NewRecurringTask{
+					ID:                 "create-test-2",
+					ScheduleExpression: "* * * * *",
+					TaskDefinition:     recurring.TaskDefinition{},
+				},
+			},
+			buildWant: nil,
+			wantErr:   true,
+			errType:   recurring.AlreadyExists{},
+		},
+		{
+			name: "should successfully create a RecurringTask when there is one with the same id that *is* soft-deleted",
+			setup: func() error {
+				existing := JsonObj{
+					"is_deleted": true,
+				}
+				bytesToSend, err := json.Marshal(existing)
+				if err != nil {
+					return err
+				}
+				req := esapi.CreateRequest{
+					Index:      infra.TasquesRecurringTasksIndex,
+					DocumentID: "create-test-3",
+					Body:       bytes.NewReader(bytesToSend),
+				}
+				_, err = req.Do(ctx, esClient)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+			args: args{
+				toPersist: &recurring.NewRecurringTask{
+					ID:                 "create-test-3",
+					ScheduleExpression: "* * * * *",
+					TaskDefinition: recurring.TaskDefinition{
+						Queue:             "persisted-form-test",
+						RetryTimes:        3,
+						Kind:              "k4",
+						Priority:          5,
+						ProcessingTimeout: task.ProcessingTimeout(3 * time.Second),
+						Args:              nil,
+						Context:           nil,
+					},
+				},
+			},
+			buildWant: func(got *recurring.RecurringTask) recurring.RecurringTask {
+				return recurring.RecurringTask{
+					ID:                 "create-test-3",
+					ScheduleExpression: "* * * * *",
+					TaskDefinition: recurring.TaskDefinition{
+						Queue:             "persisted-form-test",
+						RetryTimes:        3,
+						Kind:              "k4",
+						Priority:          5,
+						ProcessingTimeout: task.ProcessingTimeout(3 * time.Second),
+						Args:              nil,
+						Context:           nil,
+					},
+					IsDeleted: false,
+					LoadedAt:  nil,
+					Metadata:  got.Metadata,
+				}
+			},
+			wantErr: false,
+			errType: nil,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt // for parallelism
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			t.Log(tt.name)
+			if tt.setup != nil {
+				err := tt.setup()
+				if err != nil {
+					t.Errorf("Error during setup %v", err)
+					return
+				}
+			}
+			got, err := service.Create(ctx, tt.args.toPersist)
+			if err != nil {
+				assert.True(t, tt.wantErr)
+				assert.IsType(t, tt.errType, err)
+			} else {
+				want := tt.buildWant(got)
+				assert.EqualValues(t, &want, got)
+			}
+		})
+	}
 }
 
 func setRecurringTasksServiceClock(t *testing.T, service recurring.Service, frozenTime time.Time) {
