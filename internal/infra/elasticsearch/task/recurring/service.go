@@ -168,8 +168,8 @@ func (e *EsService) All(ctx context.Context) ([]recurring.RecurringTask, error) 
 	}
 }
 
-func (e *EsService) NotLoadedSince(ctx context.Context, after metadata.ModifiedAt) ([]recurring.RecurringTask, error) {
-	searchBody := buildNotLoadedSinceSearchBody(after, e.scrollPageSize)
+func (e *EsService) NotLoaded(ctx context.Context) ([]recurring.RecurringTask, error) {
+	searchBody := buildNotLoadedSinceSearchBody(e.scrollPageSize)
 	var found []recurring.RecurringTask
 	err := e.scanRecurringTasks(ctx, searchBody, e.scrollTtl, func(recurringTasks []recurring.RecurringTask) error {
 		found = append(found, recurringTasks...)
@@ -398,7 +398,7 @@ func buildUndeletedListSearchBody(pageSize uint) jsonObjMap {
 	}
 }
 
-func buildNotLoadedSinceSearchBody(since metadata.ModifiedAt, pageSize uint) jsonObjMap {
+func buildNotLoadedSinceSearchBody(pageSize uint) jsonObjMap {
 	return jsonObjMap{
 		"size":                pageSize,
 		"seq_no_primary_term": true,
@@ -422,13 +422,6 @@ func buildNotLoadedSinceSearchBody(since metadata.ModifiedAt, pageSize uint) jso
 							{
 								"term": jsonObjMap{
 									"is_deleted": false,
-								},
-							},
-							{
-								"range": jsonObjMap{
-									"metadata.modified_at": jsonObjMap{
-										"gte": time.Time(since).Format(time.RFC3339Nano),
-									},
 								},
 							},
 							{
@@ -635,45 +628,6 @@ type updateRecurringTaskBulkPairOpData struct {
 	IfSeqNo uint64 `json:"if_seq_no"`
 
 	IfPrimaryTerm uint64 `json:"if_primary_term"`
-}
-
-type esBulkResponse struct {
-	Took   uint                 `json:"took"`
-	Errors bool                 `json:"errors"`
-	Items  []esBulkResponseItem `json:"items"`
-}
-
-type esBulkResponseItem struct {
-	Index  *esBulkResponseItemInfo `json:"index"`
-	Delete *esBulkResponseItemInfo `json:"delete"`
-	Create *esBulkResponseItemInfo `json:"create"`
-	Update *esBulkResponseItemInfo `json:"update"`
-}
-
-func (i esBulkResponseItem) info() esBulkResponseItemInfo {
-	// It must be one of these.
-	if i.Index != nil {
-		return *i.Index
-	} else if i.Delete != nil {
-		return *i.Delete
-	} else if i.Create != nil {
-		return *i.Create
-	} else {
-		return *i.Update
-	}
-}
-
-type esBulkResponseItemInfo struct {
-	Index       string `json:"_index"`
-	ID          string `json:"_id"`
-	SeqNum      uint64 `json:"_seq_no"`
-	PrimaryTerm uint64 `json:"_primary_term"`
-	Result      string `json:"result"`
-	Status      uint   `json:"status"`
-}
-
-func (i *esBulkResponseItemInfo) isOk() bool {
-	return 200 <= i.Status && i.Status <= 299
 }
 
 // 	Es wrapped models -->

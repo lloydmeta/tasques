@@ -579,7 +579,7 @@ func Test_esRecurringService_Delete(t *testing.T) {
 	}
 }
 
-func Test_esRecurringService_List(t *testing.T) {
+func Test_esRecurringService_All(t *testing.T) {
 	service := buildRecurringTasksService()
 	now := time.Now().UTC()
 	setRecurringTasksServiceClock(t, service, now)
@@ -601,6 +601,10 @@ func Test_esRecurringService_List(t *testing.T) {
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, uint(len(all)), seedNumber)
 
+	for _, listed := range all {
+		assert.False(t, bool(listed.IsDeleted))
+	}
+
 	for _, seeded := range createds {
 		idx := -1
 		for i, listed := range all {
@@ -609,9 +613,86 @@ func Test_esRecurringService_List(t *testing.T) {
 				break
 			}
 		}
-		assert.NotEqual(t, -1, idx, "Not found")
+		assert.NotEqual(t, -1, idx, "Not found in list response")
 		assert.EqualValues(t, seeded, all[idx])
 	}
+
+}
+
+func Test_esRecurringService_NotLoaded(t *testing.T) {
+	service := buildRecurringTasksService()
+	now := time.Now().UTC().Add(15 * time.Hour) // set a future time
+	setRecurringTasksServiceClock(t, service, now)
+	seedNumber := scrollPageSize * 2
+
+	var expectedAbsentIds []recurring.Id
+	var expectedPresentIds []recurring.Id
+
+	// seed deleted
+	seedRecurringTasks(
+		t,
+		seedNumber,
+		func(i uint) string {
+			return fmt.Sprintf("not-loaded-since-deleted-%d", i)
+		},
+		true,
+		now,
+		nil,
+		&expectedAbsentIds,
+	)
+
+	// seed loaded
+	seedRecurringTasks(
+		t,
+		seedNumber,
+		func(i uint) string {
+			return fmt.Sprintf("not-loaded-since-loaded-%d", i)
+		},
+		false,
+		now,
+		&now,
+		&expectedAbsentIds,
+	)
+
+	// seed undeleted, old, but unloaded
+	seedRecurringTasks(
+		t,
+		seedNumber,
+		func(i uint) string {
+			return fmt.Sprintf("not-loaded-since-old-unloaded-%d", i)
+		},
+		false,
+		now.Add(-1*time.Hour),
+		nil,
+		&expectedPresentIds,
+	)
+
+	// seed undeleted new and unloaded
+	seedRecurringTasks(
+		t,
+		seedNumber,
+		func(i uint) string {
+			return fmt.Sprintf("not-loaded-since-new-unloaded-%d", i)
+		},
+		false,
+		now,
+		nil,
+		&expectedPresentIds,
+	)
+
+	refreshIndices(t)
+
+	notLoaded, err := service.NotLoaded(ctx)
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, uint(len(notLoaded)), uint(len(expectedPresentIds)))
+
+	for _, listed := range notLoaded {
+		assert.False(t, bool(listed.IsDeleted))
+		assert.Nil(t, listed.LoadedAt)
+	}
+
+	assertPresence(t, true, expectedPresentIds, notLoaded)
+	assertPresence(t, false, expectedAbsentIds, notLoaded)
 }
 
 func setRecurringTasksServiceClock(t *testing.T, service recurring.Service, frozenTime time.Time) {
@@ -634,4 +715,58 @@ func refreshIndices(t *testing.T) {
 	}
 	_, err := refresh.Do(ctx, esClient)
 	assert.NoError(t, err)
+}
+
+func seedRecurringTasks(t *testing.T, numberToSeed uint, idGenerator func(i uint) string, isDeleted bool, at time.Time, loadedAt *time.Time, appendTo *[]recurring.Id) {
+	for i := uint(0); i < numberToSeed; i++ {
+		existing := JsonObj{
+			"schedule_expression": "* * * * 3",
+			"task_definition": JsonObj{
+				"queue":              "not-loaded-since-test",
+				"retry_times":        float64(1),
+				"kind":               "k1",
+				"processing_timeout": float64(3 * time.Second),
+				"priority":           float64(2),
+			},
+			"is_deleted": isDeleted,
+			"loaded_at":  loadedAt,
+			"metadata": JsonObj{
+				"created_at":  at,
+				"modified_at": at,
+			},
+		}
+		bytesToSend, err := json.Marshal(existing)
+		if err != nil {
+			assert.NoError(t, err)
+		}
+		id := idGenerator(i)
+		*appendTo = append(*appendTo, recurring.Id(id))
+		req := esapi.CreateRequest{
+			Index:      infra.TasquesRecurringTasksIndex,
+			DocumentID: id,
+			Body:       bytes.NewReader(bytesToSend),
+		}
+		_, err = req.Do(ctx, esClient)
+		if err != nil {
+			assert.NoError(t, err)
+		}
+	}
+
+}
+
+func assertPresence(t *testing.T, shouldBePresent bool, ids []recurring.Id, observed []recurring.RecurringTask) {
+	for _, expectedPresent := range ids {
+		idx := -1
+		for i, listed := range observed {
+			if listed.ID == expectedPresent {
+				idx = i
+				break
+			}
+		}
+		if shouldBePresent {
+			assert.NotEqual(t, -1, idx, "Not found but should be found")
+		} else {
+			assert.Equal(t, -1, idx, "Found but should not be found")
+		}
+	}
 }

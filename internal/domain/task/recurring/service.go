@@ -3,8 +3,6 @@ package recurring
 import (
 	"context"
 	"fmt"
-
-	"github.com/lloydmeta/tasques/internal/domain/metadata"
 )
 
 type Service interface {
@@ -30,14 +28,10 @@ type Service interface {
 	// Sorted by id
 	All(ctx context.Context) ([]RecurringTask, error)
 
-	// NotLoadedSince returns all non-deleted, not-loaded RecurringTasks that have been
-	// modified _after_ the specific modified at time.
+	// NotLoaded returns all non-deleted, not-loaded RecurringTasks.
 	//
-	// Note that this accepts a ModifiedAt, but that includes RecurringTasks that were created
-	// after that given time as well.
-	//
-	// This is used to find tasks that have been modified but not modified after a specific time
-	NotLoadedSince(ctx context.Context, after metadata.ModifiedAt) ([]RecurringTask, error)
+	// This is used to find tasks that have been modified but not loaded.
+	NotLoaded(ctx context.Context) ([]RecurringTask, error)
 
 	// Updates multiple RecurringTasks at once and returns a MultiUpdateResult
 	//
