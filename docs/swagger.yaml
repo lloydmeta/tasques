@@ -27,6 +27,75 @@ definitions:
       seq_num:
         type: integer
     type: object
+  recurring.NewTask:
+    properties:
+      id:
+        type: string
+      schedule_expression:
+        example: '* * * * *'
+        type: string
+      task_definition:
+        $ref: '#/definitions/recurring.TaskDefinition'
+        type: object
+    required:
+    - id
+    - schedule_expression
+    - task_definition
+    type: object
+  recurring.Task:
+    properties:
+      id:
+        type: string
+      loaded_at:
+        type: string
+      metadata:
+        $ref: '#/definitions/common.Metadata'
+        type: object
+      schedule_expression:
+        example: '* * * * *'
+        type: string
+      task_definition:
+        $ref: '#/definitions/recurring.TaskDefinition'
+        type: object
+    required:
+    - id
+    - metadata
+    - schedule_expression
+    - task_definition
+    type: object
+  recurring.TaskDefinition:
+    properties:
+      args:
+        type: object
+      context:
+        type: object
+      kind:
+        example: sayHello
+        type: string
+      priority:
+        type: integer
+      processing_timeout:
+        example: 30m
+        type: string
+      queue:
+        example: run-later
+        type: string
+      retry_times:
+        example: 10
+        type: integer
+    required:
+    - kind
+    - queue
+    type: object
+  recurring.TaskUpdate:
+    properties:
+      schedule_expression:
+        example: '* * * * *'
+        type: string
+      task_definition:
+        $ref: '#/definitions/recurring.TaskDefinition'
+        type: object
+    type: object
   task.Args:
     $ref: '#/definitions/task.JsonObj'
   task.Claim:
@@ -204,6 +273,132 @@ info:
   title: Tasques API
   version: 0.0.1
 paths:
+  /recurring_tasques:
+    get:
+      consumes:
+      - application/json
+      description: Lists persisted Recurring Tasks
+      operationId: list-existing-recurring-tasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/recurring.Task'
+            type: array
+      summary: List Recurring Tasks
+      tags:
+      - recurring-tasks
+    post:
+      consumes:
+      - application/json
+      description: Creates a new Recurring Task
+      operationId: create-recurring-task
+      parameters:
+      - description: The request body
+        in: body
+        name: newRecurringTask
+        required: true
+        schema:
+          $ref: '#/definitions/recurring.NewTask'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/recurring.Task'
+        "400":
+          description: Invalid JSON
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Add a new Recurring Task
+      tags:
+      - recurring-tasks
+  /recurring_tasques/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a persisted Recurring Task
+      operationId: delete-existing-recurring-task
+      parameters:
+      - description: The id of the Recurring Task
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/recurring.Task'
+        "404":
+          description: Recurring Task does not exist
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Delete a Recurring Task
+      tags:
+      - recurring-tasks
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a persisted Recurring Task
+      operationId: get-existing-recurring-task
+      parameters:
+      - description: The id of the Recurring Task
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/recurring.Task'
+        "404":
+          description: Recurring Task does not exist
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Get a Recurring Task
+      tags:
+      - recurring-tasks
+    put:
+      consumes:
+      - application/json
+      description: Updates a persisted Recurring Task
+      operationId: update-existing-recurring-task
+      parameters:
+      - description: The id of the Recurring Task
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: The request body
+        in: body
+        name: recurringTaskUpdate
+        required: true
+        schema:
+          $ref: '#/definitions/recurring.TaskUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/recurring.Task'
+        "404":
+          description: Recurring Task does not exist
+          schema:
+            $ref: '#/definitions/common.Body'
+      summary: Update a Recurring Task
+      tags:
+      - recurring-tasks
   /tasques:
     post:
       consumes:

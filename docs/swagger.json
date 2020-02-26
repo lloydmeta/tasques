@@ -13,6 +13,194 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
+        "/recurring_tasques": {
+            "get": {
+                "description": "Lists persisted Recurring Tasks",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-tasks"
+                ],
+                "summary": "List Recurring Tasks",
+                "operationId": "list-existing-recurring-tasks",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/recurring.Task"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates a new Recurring Task",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-tasks"
+                ],
+                "summary": "Add a new Recurring Task",
+                "operationId": "create-recurring-task",
+                "parameters": [
+                    {
+                        "description": "The request body",
+                        "name": "newRecurringTask",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/recurring.NewTask"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/recurring.Task"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid JSON",
+                        "schema": {
+                            "$ref": "#/definitions/common.Body"
+                        }
+                    }
+                }
+            }
+        },
+        "/recurring_tasques/{id}": {
+            "get": {
+                "description": "Retrieves a persisted Recurring Task",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-tasks"
+                ],
+                "summary": "Get a Recurring Task",
+                "operationId": "get-existing-recurring-task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The id of the Recurring Task",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/recurring.Task"
+                        }
+                    },
+                    "404": {
+                        "description": "Recurring Task does not exist",
+                        "schema": {
+                            "$ref": "#/definitions/common.Body"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Updates a persisted Recurring Task",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-tasks"
+                ],
+                "summary": "Update a Recurring Task",
+                "operationId": "update-existing-recurring-task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The id of the Recurring Task",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The request body",
+                        "name": "recurringTaskUpdate",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/recurring.TaskUpdate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/recurring.Task"
+                        }
+                    },
+                    "404": {
+                        "description": "Recurring Task does not exist",
+                        "schema": {
+                            "$ref": "#/definitions/common.Body"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Deletes a persisted Recurring Task",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "recurring-tasks"
+                ],
+                "summary": "Delete a Recurring Task",
+                "operationId": "delete-existing-recurring-task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The id of the Recurring Task",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/recurring.Task"
+                        }
+                    },
+                    "404": {
+                        "description": "Recurring Task does not exist",
+                        "schema": {
+                            "$ref": "#/definitions/common.Body"
+                        }
+                    }
+                }
+            }
+        },
         "/tasques": {
             "post": {
                 "description": "Creates a new Task",
@@ -471,6 +659,103 @@
                 },
                 "seq_num": {
                     "type": "integer"
+                }
+            }
+        },
+        "recurring.NewTask": {
+            "type": "object",
+            "required": [
+                "id",
+                "schedule_expression",
+                "task_definition"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "schedule_expression": {
+                    "type": "string",
+                    "example": "* * * * *"
+                },
+                "task_definition": {
+                    "type": "object",
+                    "$ref": "#/definitions/recurring.TaskDefinition"
+                }
+            }
+        },
+        "recurring.Task": {
+            "type": "object",
+            "required": [
+                "id",
+                "metadata",
+                "schedule_expression",
+                "task_definition"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "loaded_at": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "$ref": "#/definitions/common.Metadata"
+                },
+                "schedule_expression": {
+                    "type": "string",
+                    "example": "* * * * *"
+                },
+                "task_definition": {
+                    "type": "object",
+                    "$ref": "#/definitions/recurring.TaskDefinition"
+                }
+            }
+        },
+        "recurring.TaskDefinition": {
+            "type": "object",
+            "required": [
+                "kind",
+                "queue"
+            ],
+            "properties": {
+                "args": {
+                    "type": "object"
+                },
+                "context": {
+                    "type": "object"
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "sayHello"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "processing_timeout": {
+                    "type": "string",
+                    "example": "30m"
+                },
+                "queue": {
+                    "type": "string",
+                    "example": "run-later"
+                },
+                "retry_times": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "recurring.TaskUpdate": {
+            "type": "object",
+            "properties": {
+                "schedule_expression": {
+                    "type": "string",
+                    "example": "* * * * *"
+                },
+                "task_definition": {
+                    "type": "object",
+                    "$ref": "#/definitions/recurring.TaskDefinition"
                 }
             }
         },

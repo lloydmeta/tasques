@@ -4,8 +4,6 @@
 package task
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/lloydmeta/tasques/internal/api/models/common"
@@ -14,6 +12,8 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/worker"
 )
 
+// Swag, the Swagger def parser has a bug that prevents us from directly using the one
+// stored in the common package
 type Duration time.Duration
 
 type NewTask struct {
@@ -75,7 +75,7 @@ type Task struct {
 	Kind              task.Kind           `json:"kind" binding:"required" example:"sayHello"`
 	State             task.State          `json:"state" binding:"required" swaggertype:"string" example:"queued"`
 	Priority          task.Priority       `json:"priority" binding:"required"`
-	ProcessingTimeout Duration            `json:"processing_timeout" binding:"required" swaggertype:"string" swaggertype:"string" example:"30m"`
+	ProcessingTimeout Duration            `json:"processing_timeout" binding:"required" swaggertype:"string" example:"30m"`
 	RunAt             time.Time           `json:"run_at" binding:"required" swaggertype:"string" format:"date-time"`
 	Args              *task.Args          `json:"args,omitempty" swaggertype:"object"`
 	Context           *task.Context       `json:"context,omitempty" swaggertype:"object"`
@@ -171,23 +171,9 @@ func FromDomainTask(dTask *task.Task) Task {
 }
 
 func (d *Duration) UnmarshalJSON(b []byte) (err error) {
-	if b[0] == '"' {
-		sd := string(b[1 : len(b)-1])
-		duration, parseErr := time.ParseDuration(sd)
-		if parseErr == nil {
-			*d = Duration(duration)
-		} else {
-			err = parseErr
-		}
-		return
-	}
-	var id int64
-	id, err = json.Number(string(b)).Int64()
-	if err != nil {
-		*d = Duration(time.Duration(id))
-	}
-	return
+	return (*common.Duration)(d).UnmarshalJSON(b)
 }
+
 func (d Duration) MarshalJSON() (b []byte, err error) {
-	return []byte(fmt.Sprintf(`"%s"`, time.Duration(d).String())), nil
+	return (common.Duration)(d).MarshalJSON()
 }

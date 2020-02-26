@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lloydmeta/tasques/internal/api/models/common"
-	apiTask "github.com/lloydmeta/tasques/internal/api/models/task"
 	"github.com/lloydmeta/tasques/internal/domain/metadata"
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
@@ -22,8 +21,8 @@ func priorityPtr(u task.Priority) *task.Priority {
 	return &u
 }
 
-func durationPtr(u time.Duration) *apiTask.Duration {
-	v := apiTask.Duration(u)
+func durationPtr(u time.Duration) *Duration {
+	v := Duration(u)
 	return &v
 }
 

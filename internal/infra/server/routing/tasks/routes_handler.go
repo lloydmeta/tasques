@@ -21,6 +21,8 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/worker"
 )
 
+var subPath = "/tasques"
+
 var WorkerIdHeaderKey = "X-TASQUES-WORKER-ID"
 var taskIdPathKey = "task_id"
 var queuePathKey = "queue"
@@ -31,13 +33,14 @@ type RoutesHandler struct {
 }
 
 func (h *RoutesHandler) RegisterRoutes(routerGroup *gin.RouterGroup) {
-	routerGroup.POST("", h.create)
-	routerGroup.GET("/:"+queuePathKey+"/:"+taskIdPathKey, h.get)
-	routerGroup.POST("/claims", h.claim)
-	routerGroup.DELETE("/claims/:"+queuePathKey+"/:"+taskIdPathKey, h.unClaim)
-	routerGroup.PUT("/reports/:"+queuePathKey+"/:"+taskIdPathKey, h.reportIn)
-	routerGroup.PUT("/done/:"+queuePathKey+"/:"+taskIdPathKey, h.markDone)
-	routerGroup.PUT("/failed/:"+queuePathKey+"/:"+taskIdPathKey, h.markFailed)
+	subGroup := routerGroup.Group(subPath)
+	subGroup.POST("", h.create)
+	subGroup.GET("/:"+queuePathKey+"/:"+taskIdPathKey, h.get)
+	subGroup.POST("/claims", h.claim)
+	subGroup.DELETE("/claims/:"+queuePathKey+"/:"+taskIdPathKey, h.unClaim)
+	subGroup.PUT("/reports/:"+queuePathKey+"/:"+taskIdPathKey, h.reportIn)
+	subGroup.PUT("/done/:"+queuePathKey+"/:"+taskIdPathKey, h.markDone)
+	subGroup.PUT("/failed/:"+queuePathKey+"/:"+taskIdPathKey, h.markFailed)
 }
 
 // @Summary Add a new Task

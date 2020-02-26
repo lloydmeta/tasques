@@ -32,8 +32,14 @@ type Controller interface {
 
 type impl struct {
 	recurringTasksService domainRecurring.Service
+	tasksConfig           config.TasksDefaults
+}
 
-	tasksConfig config.TasksDefaults
+func New(recurringTasksService domainRecurring.Service, tasksConfig config.TasksDefaults) Controller {
+	return &impl{
+		recurringTasksService: recurringTasksService,
+		tasksConfig:           tasksConfig,
+	}
 }
 
 func (c *impl) Create(ctx context.Context, task *recurring.NewTask) (*recurring.Task, *common.ApiError) {

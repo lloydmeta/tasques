@@ -9,8 +9,6 @@ import (
 	"github.com/lloydmeta/tasques/internal/config"
 )
 
-var rootPath = "/tasques"
-
 var notFoundErr = common.ApiError{
 	StatusCode: http.StatusNotFound,
 	Body: common.Body{
@@ -36,9 +34,9 @@ func NewTopLevelRoutesGroup(auth *config.Auth, ginEngine *gin.Engine) *gin.Route
 
 	var routerGroup *gin.RouterGroup
 	if len(accounts) > 0 {
-		routerGroup = ginEngine.Group(rootPath, gin.BasicAuth(accounts))
+		routerGroup = ginEngine.Group("", gin.BasicAuth(accounts))
 	} else {
-		routerGroup = ginEngine.Group(rootPath)
+		routerGroup = ginEngine.Group("")
 	}
 
 	return routerGroup

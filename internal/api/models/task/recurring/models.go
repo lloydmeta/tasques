@@ -4,21 +4,24 @@ import (
 	"time"
 
 	"github.com/lloydmeta/tasques/internal/api/models/common"
-	apiTask "github.com/lloydmeta/tasques/internal/api/models/task"
 	"github.com/lloydmeta/tasques/internal/domain/queue"
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
 )
 
+// Swag, the Swagger def parser has a bug that prevents us from directly using the one
+// stored in the common package
+type Duration time.Duration
+
 // The actual recurring task that gets inserted
 type TaskDefinition struct {
-	Queue             queue.Name        `json:"queue" binding:"required,queueName" example:"run-later"`
-	RetryTimes        *task.RetryTimes  `json:"retry_times,omitempty" example:"10"`
-	Kind              task.Kind         `json:"kind" binding:"required" example:"sayHello"`
-	Priority          *task.Priority    `json:"priority,omitempty"`
-	ProcessingTimeout *apiTask.Duration `json:"processing_timeout,omitempty" swaggertype:"string" swaggertype:"string" example:"30m"`
-	Args              *task.Args        `json:"args,omitempty" swaggertype:"object"`
-	Context           *task.Context     `json:"context,omitempty" swaggertype:"object"`
+	Queue             queue.Name       `json:"queue" binding:"required,queueName" example:"run-later"`
+	RetryTimes        *task.RetryTimes `json:"retry_times,omitempty" example:"10"`
+	Kind              task.Kind        `json:"kind" binding:"required" example:"sayHello"`
+	Priority          *task.Priority   `json:"priority,omitempty"`
+	ProcessingTimeout *Duration        `json:"processing_timeout,omitempty" swaggertype:"string" example:"30m"`
+	Args              *task.Args       `json:"args,omitempty" swaggertype:"object"`
+	Context           *task.Context    `json:"context,omitempty" swaggertype:"object"`
 }
 
 // A Task that is yet to be persisted
@@ -64,7 +67,7 @@ func FromDomainTask(task *recurring.Task) Task {
 }
 
 func fromDomainTaskDefinition(def *recurring.TaskDefinition) TaskDefinition {
-	processingTimeout := apiTask.Duration(time.Duration(def.ProcessingTimeout))
+	processingTimeout := Duration(time.Duration(def.ProcessingTimeout))
 	priority := def.Priority
 	retryTimes := def.RetryTimes
 
@@ -108,4 +111,12 @@ func (t *TaskDefinition) ToDomainTaskDefinition(defaultRetryTimes uint, defaultP
 		Args:              t.Args,
 		Context:           t.Context,
 	}
+}
+
+func (d *Duration) UnmarshalJSON(b []byte) (err error) {
+	return (*common.Duration)(d).UnmarshalJSON(b)
+}
+
+func (d Duration) MarshalJSON() (b []byte, err error) {
+	return (common.Duration)(d).MarshalJSON()
 }
