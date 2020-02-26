@@ -38,6 +38,7 @@ func (h *RoutesHandler) RegisterRoutes(routerGroup *gin.RouterGroup) {
 // @Param   newRecurringTask body recurring.NewTask true "The request body"
 // @Success 201 {object} recurring.Task
 // @Failure 400 {object} common.Body "Invalid JSON"
+// @Failure 409 {object} common.Body "Id in use"
 // @Router /recurring_tasques [post]
 func (h *RoutesHandler) create(c *gin.Context) {
 	var newTask recurring.NewTask
@@ -70,7 +71,7 @@ func (h *RoutesHandler) update(c *gin.Context) {
 		routing.HandleJsonSerdesErr(c, err)
 	} else {
 		if t, err := h.Controller.Update(c.Request.Context(), id, &taskUpdate); err == nil {
-			c.JSON(http.StatusCreated, t)
+			c.JSON(http.StatusOK, t)
 		} else {
 			c.JSON(err.StatusCode, err.Body)
 		}

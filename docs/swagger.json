@@ -75,6 +75,12 @@
                         "schema": {
                             "$ref": "#/definitions/common.Body"
                         }
+                    },
+                    "409": {
+                        "description": "Id in use",
+                        "schema": {
+                            "$ref": "#/definitions/common.Body"
+                        }
                     }
                 }
             }

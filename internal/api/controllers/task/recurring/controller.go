@@ -27,7 +27,7 @@ type Controller interface {
 	Delete(ctx context.Context, id domainRecurring.Id) (*recurring.Task, *common.ApiError)
 
 	// List returns all tasks
-	List(ctx context.Context) ([]*recurring.Task, *common.ApiError)
+	List(ctx context.Context) ([]recurring.Task, *common.ApiError)
 }
 
 type impl struct {
@@ -95,12 +95,23 @@ func (c *impl) Delete(ctx context.Context, id domainRecurring.Id) (*recurring.Ta
 	}
 }
 
-func (c *impl) List(ctx context.Context) ([]*recurring.Task, *common.ApiError) {
-	panic("implement me")
+func (c *impl) List(ctx context.Context) ([]recurring.Task, *common.ApiError) {
+	result, err := c.recurringTasksService.All(ctx)
+	if err != nil {
+		return nil, handleErr(err)
+	} else {
+		apiTasks := make([]recurring.Task, 0, len(result))
+		for _, domainTask := range result {
+			apiTasks = append(apiTasks, recurring.FromDomainTask(&domainTask))
+		}
+		return apiTasks, nil
+	}
 }
 
 func handleErr(err error) *common.ApiError {
 	switch v := err.(type) {
+	case domainRecurring.AlreadyExists:
+		return alreadyExists(v)
 	case domainRecurring.NotFound:
 		return notFound(v)
 	case domainRecurring.InvalidPersistedData:
@@ -109,6 +120,15 @@ func handleErr(err error) *common.ApiError {
 		return versionConflict(v)
 	default:
 		return unhandledErr(v)
+	}
+}
+
+func alreadyExists(alreadyExists domainRecurring.AlreadyExists) *common.ApiError {
+	return &common.ApiError{
+		StatusCode: http.StatusConflict,
+		Body: common.Body{
+			Message: alreadyExists.Error(),
+		},
 	}
 }
 
@@ -138,6 +158,7 @@ func invalidPersistedData(err domainRecurring.InvalidPersistedData) *common.ApiE
 		},
 	}
 }
+
 func unhandledErr(e error) *common.ApiError {
 	return &common.ApiError{
 		StatusCode: http.StatusInternalServerError,

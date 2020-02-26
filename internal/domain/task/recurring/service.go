@@ -81,7 +81,7 @@ type AlreadyExists struct {
 }
 
 func (e AlreadyExists) Error() string {
-	return fmt.Sprintf("Could not find [%v]", e.ID)
+	return fmt.Sprintf("Id already exists [%v]", e.ID)
 }
 
 func (e AlreadyExists) Id() Id {

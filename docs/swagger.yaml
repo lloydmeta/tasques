@@ -314,6 +314,10 @@ paths:
           description: Invalid JSON
           schema:
             $ref: '#/definitions/common.Body'
+        "409":
+          description: Id in use
+          schema:
+            $ref: '#/definitions/common.Body'
       summary: Add a new Recurring Task
       tags:
       - recurring-tasks
