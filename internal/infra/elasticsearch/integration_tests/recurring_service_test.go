@@ -34,7 +34,7 @@ func Test_esRecurringService_verifingPersistedForm(t *testing.T) {
 	now := time.Now().UTC()
 	setRecurringTasksServiceClock(t, service, now)
 	type args struct {
-		toPersist *recurring.NewRecurringTask
+		toPersist *recurring.NewTask
 	}
 	tests := []struct {
 		name       string
@@ -44,7 +44,7 @@ func Test_esRecurringService_verifingPersistedForm(t *testing.T) {
 		{
 			name: "should not write nil fields out to ES",
 			args: args{
-				toPersist: &recurring.NewRecurringTask{
+				toPersist: &recurring.NewTask{
 					ID:                 "persistence-test-1",
 					ScheduleExpression: "* * * * *",
 					TaskDefinition: recurring.TaskDefinition{
@@ -77,7 +77,7 @@ func Test_esRecurringService_verifingPersistedForm(t *testing.T) {
 		{
 			name: "should persist provided args and context",
 			args: args{
-				toPersist: &recurring.NewRecurringTask{
+				toPersist: &recurring.NewTask{
 					ID:                 "persistence-test-2",
 					ScheduleExpression: "* * * * 3",
 					TaskDefinition: recurring.TaskDefinition{
@@ -157,22 +157,22 @@ func Test_esRecurringService_Create(t *testing.T) {
 	now := time.Now().UTC()
 	setRecurringTasksServiceClock(t, service, now)
 	type args struct {
-		toPersist *recurring.NewRecurringTask
+		toPersist *recurring.NewTask
 	}
 	tests := []struct {
 		name  string
 		setup func() error
 		args  args
 
-		buildWant func(got *recurring.RecurringTask) recurring.RecurringTask
+		buildWant func(got *recurring.Task) recurring.Task
 		wantErr   bool
 		errType   interface{}
 	}{
 		{
-			name:  "create a RecurringTask",
+			name:  "create a Task",
 			setup: nil,
 			args: args{
-				toPersist: &recurring.NewRecurringTask{
+				toPersist: &recurring.NewTask{
 					ID:                 "create-test-1",
 					ScheduleExpression: "* * * * *",
 					TaskDefinition: recurring.TaskDefinition{
@@ -186,8 +186,8 @@ func Test_esRecurringService_Create(t *testing.T) {
 					},
 				},
 			},
-			buildWant: func(got *recurring.RecurringTask) recurring.RecurringTask {
-				return recurring.RecurringTask{
+			buildWant: func(got *recurring.Task) recurring.Task {
+				return recurring.Task{
 					ID:                 "create-test-1",
 					ScheduleExpression: "* * * * *",
 					TaskDefinition: recurring.TaskDefinition{
@@ -208,7 +208,7 @@ func Test_esRecurringService_Create(t *testing.T) {
 			errType: nil,
 		},
 		{
-			name: "should fail to create a RecurringTask when there is one with the same id that is not soft-deleted",
+			name: "should fail to create a Task when there is one with the same id that is not soft-deleted",
 			setup: func() error {
 				existing := JsonObj{
 					"is_deleted": false,
@@ -229,7 +229,7 @@ func Test_esRecurringService_Create(t *testing.T) {
 				return nil
 			},
 			args: args{
-				toPersist: &recurring.NewRecurringTask{
+				toPersist: &recurring.NewTask{
 					ID:                 "create-test-2",
 					ScheduleExpression: "* * * * *",
 					TaskDefinition:     recurring.TaskDefinition{},
@@ -240,7 +240,7 @@ func Test_esRecurringService_Create(t *testing.T) {
 			errType:   recurring.AlreadyExists{},
 		},
 		{
-			name: "should successfully create a RecurringTask when there is one with the same id that *is* soft-deleted",
+			name: "should successfully create a Task when there is one with the same id that *is* soft-deleted",
 			setup: func() error {
 				existing := JsonObj{
 					"is_deleted": true,
@@ -261,7 +261,7 @@ func Test_esRecurringService_Create(t *testing.T) {
 				return nil
 			},
 			args: args{
-				toPersist: &recurring.NewRecurringTask{
+				toPersist: &recurring.NewTask{
 					ID:                 "create-test-3",
 					ScheduleExpression: "* * * * *",
 					TaskDefinition: recurring.TaskDefinition{
@@ -275,8 +275,8 @@ func Test_esRecurringService_Create(t *testing.T) {
 					},
 				},
 			},
-			buildWant: func(got *recurring.RecurringTask) recurring.RecurringTask {
-				return recurring.RecurringTask{
+			buildWant: func(got *recurring.Task) recurring.Task {
+				return recurring.Task{
 					ID:                 "create-test-3",
 					ScheduleExpression: "* * * * *",
 					TaskDefinition: recurring.TaskDefinition{
@@ -334,14 +334,14 @@ func Test_esRecurringService_Get(t *testing.T) {
 	}
 	tests := []struct {
 		name      string
-		toPersist *recurring.NewRecurringTask
-		setup     func(created *recurring.RecurringTask) error
+		toPersist *recurring.NewTask
+		setup     func(created *recurring.Task) error
 		args      args
 		wantErr   bool
 		errType   interface{}
 	}{
 		{
-			name:      "get a non-existent RecurringTask",
+			name:      "get a non-existent Task",
 			toPersist: nil,
 			setup:     nil,
 			args: args{
@@ -352,9 +352,9 @@ func Test_esRecurringService_Get(t *testing.T) {
 			errType: recurring.NotFound{},
 		},
 		{
-			name:      "get an existent but deleted RecurringTask with includeSoftDeleted = false",
+			name:      "get an existent but deleted Task with includeSoftDeleted = false",
 			toPersist: nil,
-			setup: func(created *recurring.RecurringTask) error {
+			setup: func(created *recurring.Task) error {
 				existing := JsonObj{
 					"is_deleted": true,
 				}
@@ -381,13 +381,13 @@ func Test_esRecurringService_Get(t *testing.T) {
 			errType: recurring.NotFound{},
 		},
 		{
-			name: "get an existent but deleted RecurringTask with includeSoftDeleted = true",
-			toPersist: &recurring.NewRecurringTask{
+			name: "get an existent but deleted Task with includeSoftDeleted = true",
+			toPersist: &recurring.NewTask{
 				ID:                 "get-existing-deleted-2",
 				ScheduleExpression: "* * * * *",
 				TaskDefinition:     recurring.TaskDefinition{},
 			},
-			setup: func(created *recurring.RecurringTask) error {
+			setup: func(created *recurring.Task) error {
 				existing := JsonObj{
 					"doc": JsonObj{
 						"is_deleted": true,
@@ -423,8 +423,8 @@ func Test_esRecurringService_Get(t *testing.T) {
 			errType: nil,
 		},
 		{
-			name: "get an existent but RecurringTask with includeSoftDeleted = false",
-			toPersist: &recurring.NewRecurringTask{
+			name: "get an existent but Task with includeSoftDeleted = false",
+			toPersist: &recurring.NewTask{
 				ID:                 "get-existing-1",
 				ScheduleExpression: "* * * * *",
 				TaskDefinition:     recurring.TaskDefinition{},
@@ -438,8 +438,8 @@ func Test_esRecurringService_Get(t *testing.T) {
 			errType: nil,
 		},
 		{
-			name: "get an existent but RecurringTask with includeSoftDeleted = true",
-			toPersist: &recurring.NewRecurringTask{
+			name: "get an existent but Task with includeSoftDeleted = true",
+			toPersist: &recurring.NewTask{
 				ID:                 "get-existing-2",
 				ScheduleExpression: "* * * * *",
 				TaskDefinition:     recurring.TaskDefinition{},
@@ -458,7 +458,7 @@ func Test_esRecurringService_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Log(tt.name)
-			var created *recurring.RecurringTask
+			var created *recurring.Task
 			if tt.toPersist != nil {
 				r, err := service.Create(ctx, tt.toPersist)
 				assert.NoError(t, err)
@@ -492,14 +492,14 @@ func Test_esRecurringService_Delete(t *testing.T) {
 	}
 	tests := []struct {
 		name      string
-		toPersist *recurring.NewRecurringTask
-		setup     func(created *recurring.RecurringTask) error
+		toPersist *recurring.NewTask
+		setup     func(created *recurring.Task) error
 		args      args
 		wantErr   bool
 		errType   interface{}
 	}{
 		{
-			name:      "delete a non-existent RecurringTask",
+			name:      "delete a non-existent Task",
 			toPersist: nil,
 			setup:     nil,
 			args: args{
@@ -509,9 +509,9 @@ func Test_esRecurringService_Delete(t *testing.T) {
 			errType: recurring.NotFound{},
 		},
 		{
-			name:      "delete an existent but soft-deleted RecurringTask",
+			name:      "delete an existent but soft-deleted Task",
 			toPersist: nil,
-			setup: func(created *recurring.RecurringTask) error {
+			setup: func(created *recurring.Task) error {
 				existing := JsonObj{
 					"is_deleted": true,
 				}
@@ -537,8 +537,8 @@ func Test_esRecurringService_Delete(t *testing.T) {
 			errType: recurring.NotFound{},
 		},
 		{
-			name: "delete an existent non soft-deleted RecurringTask",
-			toPersist: &recurring.NewRecurringTask{
+			name: "delete an existent non soft-deleted Task",
+			toPersist: &recurring.NewTask{
 				ID:                 "delete-existing-1",
 				ScheduleExpression: "* * * * *",
 				TaskDefinition:     recurring.TaskDefinition{},
@@ -556,7 +556,7 @@ func Test_esRecurringService_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Log(tt.name)
-			var created *recurring.RecurringTask
+			var created *recurring.Task
 			if tt.toPersist != nil {
 				r, err := service.Create(ctx, tt.toPersist)
 				assert.NoError(t, err)
@@ -585,9 +585,9 @@ func Test_esRecurringService_All(t *testing.T) {
 	now := time.Now().UTC()
 	setRecurringTasksServiceClock(t, service, now)
 	seedNumber := scrollPageSize * 2
-	var createds []recurring.RecurringTask
+	var createds []recurring.Task
 	for i := uint(0); i < seedNumber; i++ {
-		created, err := service.Create(ctx, &recurring.NewRecurringTask{
+		created, err := service.Create(ctx, &recurring.NewTask{
 			ID:                 recurring.Id(fmt.Sprintf("list-test-%d", i)),
 			ScheduleExpression: "* * * * *",
 			TaskDefinition:     recurring.TaskDefinition{},
@@ -702,7 +702,7 @@ func Test_esRecurringService_Update(t *testing.T) {
 	setRecurringTasksServiceClock(t, service, now)
 
 	type args struct {
-		update func() *recurring.RecurringTask
+		update func() *recurring.Task
 	}
 	tests := []struct {
 		name    string
@@ -711,10 +711,10 @@ func Test_esRecurringService_Update(t *testing.T) {
 		errType interface{}
 	}{
 		{
-			name: "update a non-existent RecurringTask",
+			name: "update a non-existent Task",
 			args: args{
-				update: func() *recurring.RecurringTask {
-					return &recurring.RecurringTask{
+				update: func() *recurring.Task {
+					return &recurring.Task{
 						ID: "non-existent",
 						Metadata: metadata.Metadata{
 							Version: metadata.Version{
@@ -729,10 +729,10 @@ func Test_esRecurringService_Update(t *testing.T) {
 			errType: recurring.InvalidVersion{}, // ES returns this even if the id doesn't exist..
 		},
 		{
-			name: "update a non-existent RecurringTask with wrong version",
+			name: "update a non-existent Task with wrong version",
 			args: args{
-				update: func() *recurring.RecurringTask {
-					created, err := service.Create(ctx, &recurring.NewRecurringTask{
+				update: func() *recurring.Task {
+					created, err := service.Create(ctx, &recurring.NewTask{
 						ID:                 "update-test-1",
 						ScheduleExpression: "* * * * *",
 						TaskDefinition:     recurring.TaskDefinition{},
@@ -751,10 +751,10 @@ func Test_esRecurringService_Update(t *testing.T) {
 			errType: recurring.InvalidVersion{},
 		},
 		{
-			name: "update an existent RecurringTask",
+			name: "update an existent Task",
 			args: args{
-				update: func() *recurring.RecurringTask {
-					created, err := service.Create(ctx, &recurring.NewRecurringTask{
+				update: func() *recurring.Task {
+					created, err := service.Create(ctx, &recurring.NewTask{
 						ID:                 "update-test-2",
 						ScheduleExpression: "* * * * *",
 						TaskDefinition:     recurring.TaskDefinition{},
@@ -801,9 +801,9 @@ func Test_esRecurringService_MarkLoaded(t *testing.T) {
 	now := time.Now().UTC()
 	setRecurringTasksServiceClock(t, service, now)
 	seedNumber := scrollPageSize * 2
-	var createds []recurring.RecurringTask
+	var createds []recurring.Task
 	for i := uint(0); i < seedNumber; i++ {
-		created, err := service.Create(ctx, &recurring.NewRecurringTask{
+		created, err := service.Create(ctx, &recurring.NewTask{
 			ID:                 recurring.Id(fmt.Sprintf("mark-loaded-test-%d", i)),
 			ScheduleExpression: "* * * * *",
 			TaskDefinition:     recurring.TaskDefinition{},
@@ -895,7 +895,7 @@ func seedRecurringTasks(t *testing.T, numberToSeed uint, idGenerator func(i uint
 
 }
 
-func assertPresence(t *testing.T, shouldBePresent bool, ids []recurring.Id, observed []recurring.RecurringTask) {
+func assertPresence(t *testing.T, shouldBePresent bool, ids []recurring.Id, observed []recurring.Task) {
 	for _, expectedPresent := range ids {
 		idx := -1
 		for i, listed := range observed {

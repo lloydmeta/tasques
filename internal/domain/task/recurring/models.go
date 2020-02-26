@@ -8,7 +8,7 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/task"
 )
 
-// A user-specifiable RecurringTask Id
+// A user-specifiable Task Id
 type Id string
 
 // The actual recurring task that gets inserted
@@ -26,7 +26,7 @@ type TaskDefinition struct {
 // can be parsed by our actual scheduling infra lib...
 type ScheduleExpression string
 
-// When a given RecurringTask was last "loaded" by a scheduling
+// When a given Task was last "loaded" by a scheduling
 // process.
 type LoadedAt time.Time
 
@@ -36,7 +36,7 @@ type IsDeleted bool
 // A Task that is yet to be persisted
 // We assume that the ScheduleExpression is valid
 // *before* we persist it
-type NewRecurringTask struct {
+type NewTask struct {
 	ID                 Id
 	ScheduleExpression ScheduleExpression
 	TaskDefinition     TaskDefinition
@@ -49,7 +49,7 @@ type NewRecurringTask struct {
 // way allows us to easily atomically store data and query it.
 // Given good ES integration is an explicit goal, I *think* at this point
 // that it's ok to leak a bit of that into the domain ..
-type RecurringTask struct {
+type Task struct {
 	ID                 Id
 	ScheduleExpression ScheduleExpression
 	TaskDefinition     TaskDefinition
@@ -58,17 +58,17 @@ type RecurringTask struct {
 	Metadata           metadata.Metadata
 }
 
-func (r *RecurringTask) UpdateSchedule(expression ScheduleExpression) {
+func (r *Task) UpdateSchedule(expression ScheduleExpression) {
 	r.ScheduleExpression = expression
 	r.LoadedAt = nil
 }
 
-func (r *RecurringTask) UpdateTaskDefinition(definition TaskDefinition) {
+func (r *Task) UpdateTaskDefinition(definition TaskDefinition) {
 	r.TaskDefinition = definition
 	r.LoadedAt = nil
 }
 
-func (r *RecurringTask) IntoDeleted() {
+func (r *Task) IntoDeleted() {
 	r.IsDeleted = true
 	r.LoadedAt = nil
 }

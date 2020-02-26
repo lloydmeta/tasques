@@ -41,7 +41,7 @@ func NewService(client *elasticsearch.Client, scrollPageSize uint, scrollTtl tim
 	}
 }
 
-func (e *EsService) Create(ctx context.Context, task *recurring.NewRecurringTask) (*recurring.RecurringTask, error) {
+func (e *EsService) Create(ctx context.Context, task *recurring.NewTask) (*recurring.Task, error) {
 	toPersist := e.newToPersistable(task)
 	toPersistBytes, err := json.Marshal(toPersist)
 	if err != nil {
@@ -110,7 +110,7 @@ func (e *EsService) Create(ctx context.Context, task *recurring.NewRecurringTask
 	}
 }
 
-func (e *EsService) Get(ctx context.Context, id recurring.Id, includeSoftDeleted bool) (*recurring.RecurringTask, error) {
+func (e *EsService) Get(ctx context.Context, id recurring.Id, includeSoftDeleted bool) (*recurring.Task, error) {
 	req := esapi.GetRequest{
 		Index:      TasquesRecurringTasksIndex,
 		DocumentID: string(id),
@@ -154,10 +154,10 @@ func (e *EsService) Delete(ctx context.Context, id recurring.Id) error {
 	}
 }
 
-func (e *EsService) All(ctx context.Context) ([]recurring.RecurringTask, error) {
+func (e *EsService) All(ctx context.Context) ([]recurring.Task, error) {
 	searchBody := buildUndeletedListSearchBody(e.scrollPageSize)
-	var found []recurring.RecurringTask
-	err := e.scanRecurringTasks(ctx, searchBody, e.scrollTtl, func(recurringTasks []recurring.RecurringTask) error {
+	var found []recurring.Task
+	err := e.scanRecurringTasks(ctx, searchBody, e.scrollTtl, func(recurringTasks []recurring.Task) error {
 		found = append(found, recurringTasks...)
 		return nil
 	})
@@ -168,10 +168,10 @@ func (e *EsService) All(ctx context.Context) ([]recurring.RecurringTask, error) 
 	}
 }
 
-func (e *EsService) NotLoaded(ctx context.Context) ([]recurring.RecurringTask, error) {
+func (e *EsService) NotLoaded(ctx context.Context) ([]recurring.Task, error) {
 	searchBody := buildNotLoadedSinceSearchBody(e.scrollPageSize)
-	var found []recurring.RecurringTask
-	err := e.scanRecurringTasks(ctx, searchBody, e.scrollTtl, func(recurringTasks []recurring.RecurringTask) error {
+	var found []recurring.Task
+	err := e.scanRecurringTasks(ctx, searchBody, e.scrollTtl, func(recurringTasks []recurring.Task) error {
 		found = append(found, recurringTasks...)
 		return nil
 	})
@@ -182,7 +182,7 @@ func (e *EsService) NotLoaded(ctx context.Context) ([]recurring.RecurringTask, e
 	}
 }
 
-func (e *EsService) Update(ctx context.Context, update *recurring.RecurringTask) (*recurring.RecurringTask, error) {
+func (e *EsService) Update(ctx context.Context, update *recurring.Task) (*recurring.Task, error) {
 	now := e.getUTC()
 	update.LoadedAt = nil
 	toPersist := domainToPersistable(update, metadata.ModifiedAt(now))
@@ -221,7 +221,7 @@ func (e *EsService) Update(ctx context.Context, update *recurring.RecurringTask)
 	}
 }
 
-func (e *EsService) MarkLoaded(ctx context.Context, toMarks []recurring.RecurringTask) (*recurring.MultiUpdateResult, error) {
+func (e *EsService) MarkLoaded(ctx context.Context, toMarks []recurring.Task) (*recurring.MultiUpdateResult, error) {
 	now := e.getUTC()
 	loadedAt := recurring.LoadedAt(now)
 	modifiedAt := metadata.ModifiedAt(now)
@@ -273,7 +273,7 @@ func (e *EsService) MarkLoaded(ctx context.Context, toMarks []recurring.Recurrin
 
 // This is the main method that should be used for listing and scrolling through a potentially large collection of
 // RecurringTasks
-func (e *EsService) scanRecurringTasks(ctx context.Context, searchBody jsonObjMap, scrollTtl time.Duration, doWithBatch func(recurrings []recurring.RecurringTask) error) error {
+func (e *EsService) scanRecurringTasks(ctx context.Context, searchBody jsonObjMap, scrollTtl time.Duration, doWithBatch func(recurrings []recurring.Task) error) error {
 	log.Info().Msg("Beginning to scan recurring tasks")
 	log.Debug().Interface("searchBody", searchBody).Msg("Scanning tasks")
 	recurringTasksWithScrollId, err := e.initSearch(ctx, searchBody, scrollTtl)
@@ -347,7 +347,7 @@ func processScrollResp(rawResp *esapi.Response) (*recurringTasksWithScrollId, er
 		if err := json.NewDecoder(rawResp.Body).Decode(&scrollResp); err != nil {
 			return nil, common.JsonSerdesErr{Underlying: []error{err}}
 		}
-		tasks := make([]recurring.RecurringTask, 0, len(scrollResp.Hits.Hits))
+		tasks := make([]recurring.Task, 0, len(scrollResp.Hits.Hits))
 		for _, pTask := range scrollResp.Hits.Hits {
 			tasks = append(tasks, pTask.toDomainTask())
 		}
@@ -454,7 +454,7 @@ func buildNotLoadedSinceSearchBody(pageSize uint) jsonObjMap {
 	}
 }
 
-func buildTasksBulkUpdateNdJsonBytes(recurringTasks []recurring.RecurringTask, at metadata.ModifiedAt) ([]byte, error) {
+func buildTasksBulkUpdateNdJsonBytes(recurringTasks []recurring.Task, at metadata.ModifiedAt) ([]byte, error) {
 	var errAcc []error
 	var bytesAcc []byte
 	for _, t := range recurringTasks {
@@ -484,7 +484,7 @@ func buildTasksBulkUpdateNdJsonBytes(recurringTasks []recurring.RecurringTask, a
 	}
 }
 
-func buildUpdateBulkOp(task *recurring.RecurringTask, at metadata.ModifiedAt) updateRecurringTaskBulkOpPair {
+func buildUpdateBulkOp(task *recurring.Task, at metadata.ModifiedAt) updateRecurringTaskBulkOpPair {
 	return updateRecurringTaskBulkOpPair{
 		op: updateRecurringTaskBulkPairOp{
 			Index: updateRecurringTaskBulkPairOpData{
@@ -520,7 +520,7 @@ type persistedRecurringTaskData struct {
 	Metadata           common.PersistedMetadata                 `json:"metadata"`
 }
 
-func (e *EsService) newToPersistable(task *recurring.NewRecurringTask) persistedRecurringTaskData {
+func (e *EsService) newToPersistable(task *recurring.NewTask) persistedRecurringTaskData {
 	now := e.getUTC()
 	return persistedRecurringTaskData{
 		ScheduleExpression: string(task.ScheduleExpression),
@@ -534,7 +534,7 @@ func (e *EsService) newToPersistable(task *recurring.NewRecurringTask) persisted
 	}
 }
 
-func domainToPersistable(task *recurring.RecurringTask, at metadata.ModifiedAt) persistedRecurringTaskData {
+func domainToPersistable(task *recurring.Task, at metadata.ModifiedAt) persistedRecurringTaskData {
 	return persistedRecurringTaskData{
 		ScheduleExpression: string(task.ScheduleExpression),
 		TaskDefinition:     domainTaskDefToPersistable(&task.TaskDefinition),
@@ -559,8 +559,8 @@ func domainTaskDefToPersistable(def *recurring.TaskDefinition) persistedRecurrin
 	}
 }
 
-func persistedToDomain(id recurring.Id, data *persistedRecurringTaskData, version metadata.Version) recurring.RecurringTask {
-	return recurring.RecurringTask{
+func persistedToDomain(id recurring.Id, data *persistedRecurringTaskData, version metadata.Version) recurring.Task {
+	return recurring.Task{
 		ID:                 id,
 		ScheduleExpression: recurring.ScheduleExpression(data.ScheduleExpression),
 		TaskDefinition:     persistedTaskDefToDomainTaskDef(&data.TaskDefinition),
@@ -598,7 +598,7 @@ type esHitPersistedRecurringTask struct {
 	Source      persistedRecurringTaskData `json:"_source"`
 }
 
-func (pTask *esHitPersistedRecurringTask) toDomainTask() recurring.RecurringTask {
+func (pTask *esHitPersistedRecurringTask) toDomainTask() recurring.Task {
 	return persistedToDomain(recurring.Id(pTask.ID), &pTask.Source, pTask.Version())
 }
 
@@ -611,7 +611,7 @@ func (pTask *esHitPersistedRecurringTask) Version() metadata.Version {
 
 type recurringTasksWithScrollId struct {
 	ScrollId       string
-	RecurringTasks []recurring.RecurringTask
+	RecurringTasks []recurring.Task
 }
 
 type esSearchScrollingResponse struct {
