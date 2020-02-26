@@ -24,7 +24,7 @@ import (
 )
 
 func init() {
-	validation.SetUpValidators()
+	validation.SetUpValidators(validation.TestStandardParser{})
 }
 
 func workerHeaders() http.Header {

@@ -29,19 +29,19 @@ type TaskDefinition struct {
 // *before* we persist it
 type NewTask struct {
 	ID                 recurring.Id                 `json:"id" binding:"required"`
-	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required" example:"* * * * *"`
+	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"* * * * *"`
 	TaskDefinition     TaskDefinition               `json:"task_definition" binding:"required"`
 }
 
 // Update definition for an existing Task
 type TaskUpdate struct {
-	ScheduleExpression *recurring.ScheduleExpression `json:"schedule_expression,omitempty" example:"* * * * *"`
+	ScheduleExpression *recurring.ScheduleExpression `json:"schedule_expression,omitempty" binding:"scheduleExpression" example:"* * * * *"`
 	TaskDefinition     *TaskDefinition               `json:"task_definition,omitempty"`
 }
 
 type Task struct {
 	ID                 recurring.Id                 `json:"id" binding:"required"`
-	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required" example:"* * * * *"`
+	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"* * * * *"`
 	TaskDefinition     TaskDefinition               `json:"task_definition" binding:"required"`
 	LoadedAt           *time.Time                   `json:"loaded_at,omitempty"`
 	Metadata           common.Metadata              `json:"metadata" binding:"required"`

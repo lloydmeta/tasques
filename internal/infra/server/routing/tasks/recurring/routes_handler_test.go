@@ -24,7 +24,7 @@ import (
 )
 
 func init() {
-	validation.SetUpValidators()
+	validation.SetUpValidators(validation.TestStandardParser{})
 }
 
 func Test_Create_Ok(t *testing.T) {
@@ -62,9 +62,23 @@ func Test_Create_Err(t *testing.T) {
 	}
 }
 
+func Test_Create_InvalidSchedule(t *testing.T) {
+	router, _ := setupRouter()
+	invalidScheduleApiNewTask := recurring.NewTask{
+		ID:                 "abc",
+		ScheduleExpression: "lolz",
+		TaskDefinition: recurring.TaskDefinition{
+			Queue: "q",
+			Kind:  "k",
+		},
+	}
+	resp := performRequest(router, http.MethodPost, "/recurring_tasques", invalidScheduleApiNewTask, nil)
+	assert.EqualValues(t, http.StatusBadRequest, resp.Code)
+}
+
 func Test_Update_Ok(t *testing.T) {
 	router, mockController := setupRouter()
-	resp := performRequest(router, http.MethodPut, "/recurring_tasques/hello", mockApiNewTask, nil)
+	resp := performRequest(router, http.MethodPut, "/recurring_tasques/hello", mockApiTaskUpdate, nil)
 	assert.EqualValues(t, http.StatusOK, resp.Code)
 	assert.EqualValues(t, 1, mockController.updateCalled)
 	var respTask recurring.Task
@@ -86,7 +100,7 @@ func Test_Update_Err(t *testing.T) {
 	mockController.updateOverride = func() (task *recurring.Task, apiError *common.ApiError) {
 		return nil, &apiErr
 	}
-	resp := performRequest(router, http.MethodPut, "/recurring_tasques/hello", mockApiNewTask, nil)
+	resp := performRequest(router, http.MethodPut, "/recurring_tasques/hello", mockApiTaskUpdate, nil)
 	assert.EqualValues(t, apiErr.StatusCode, resp.Code)
 	assert.EqualValues(t, 1, mockController.updateCalled)
 	var respTask common.Body
@@ -97,9 +111,23 @@ func Test_Update_Err(t *testing.T) {
 	}
 }
 
+func Test_Update_InvalidSchedule(t *testing.T) {
+	router, _ := setupRouter()
+	invalidSchedule := domainRecurring.ScheduleExpression("lol")
+	invalidScheduleUpdate := recurring.TaskUpdate{
+		ScheduleExpression: &invalidSchedule,
+		TaskDefinition: &recurring.TaskDefinition{
+			Queue: "q",
+			Kind:  "k",
+		},
+	}
+	resp := performRequest(router, http.MethodPut, "/recurring_tasques/hello", invalidScheduleUpdate, nil)
+	assert.EqualValues(t, http.StatusBadRequest, resp.Code)
+}
+
 func Test_Get_Ok(t *testing.T) {
 	router, mockController := setupRouter()
-	resp := performRequest(router, http.MethodGet, "/recurring_tasques/hello", mockApiNewTask, nil)
+	resp := performRequest(router, http.MethodGet, "/recurring_tasques/hello", nil, nil)
 	assert.EqualValues(t, http.StatusOK, resp.Code)
 	assert.EqualValues(t, 1, mockController.getCalled)
 	var respTask recurring.Task
@@ -121,7 +149,7 @@ func Test_Get_Err(t *testing.T) {
 	mockController.getOverride = func() (task *recurring.Task, apiError *common.ApiError) {
 		return nil, &apiErr
 	}
-	resp := performRequest(router, http.MethodGet, "/recurring_tasques/hello", mockApiNewTask, nil)
+	resp := performRequest(router, http.MethodGet, "/recurring_tasques/hello", nil, nil)
 	assert.EqualValues(t, apiErr.StatusCode, resp.Code)
 	assert.EqualValues(t, 1, mockController.getCalled)
 	var respTask common.Body
@@ -134,7 +162,7 @@ func Test_Get_Err(t *testing.T) {
 
 func Test_Delete_Ok(t *testing.T) {
 	router, mockController := setupRouter()
-	resp := performRequest(router, http.MethodDelete, "/recurring_tasques/hello", mockApiNewTask, nil)
+	resp := performRequest(router, http.MethodDelete, "/recurring_tasques/hello", nil, nil)
 	assert.EqualValues(t, http.StatusOK, resp.Code)
 	assert.EqualValues(t, 1, mockController.deleteCalled)
 	var respTask recurring.Task
@@ -156,7 +184,7 @@ func Test_Delete_Err(t *testing.T) {
 	mockController.deleteOverride = func() (task *recurring.Task, apiError *common.ApiError) {
 		return nil, &apiErr
 	}
-	resp := performRequest(router, http.MethodDelete, "/recurring_tasques/hello", mockApiNewTask, nil)
+	resp := performRequest(router, http.MethodDelete, "/recurring_tasques/hello", nil, nil)
 	assert.EqualValues(t, apiErr.StatusCode, resp.Code)
 	assert.EqualValues(t, 1, mockController.deleteCalled)
 	var respTask common.Body
@@ -169,7 +197,7 @@ func Test_Delete_Err(t *testing.T) {
 
 func Test_List_Ok(t *testing.T) {
 	router, mockController := setupRouter()
-	resp := performRequest(router, http.MethodGet, "/recurring_tasques", mockApiNewTask, nil)
+	resp := performRequest(router, http.MethodGet, "/recurring_tasques", nil, nil)
 	assert.EqualValues(t, http.StatusOK, resp.Code)
 	assert.EqualValues(t, 1, mockController.listCalled)
 	var respTask []recurring.Task
@@ -191,7 +219,7 @@ func Test_List_Err(t *testing.T) {
 	mockController.listOverride = func() (task []recurring.Task, apiError *common.ApiError) {
 		return nil, &apiErr
 	}
-	resp := performRequest(router, http.MethodGet, "/recurring_tasques", mockApiNewTask, nil)
+	resp := performRequest(router, http.MethodGet, "/recurring_tasques", nil, nil)
 	assert.EqualValues(t, apiErr.StatusCode, resp.Code)
 	assert.EqualValues(t, 1, mockController.listCalled)
 	var respTask common.Body

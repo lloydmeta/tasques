@@ -24,6 +24,8 @@ import (
 	recurringController "github.com/lloydmeta/tasques/internal/api/controllers/task/recurring"
 	"github.com/lloydmeta/tasques/internal/domain/leader"
 	"github.com/lloydmeta/tasques/internal/domain/task"
+	recurring2 "github.com/lloydmeta/tasques/internal/domain/task/recurring"
+	recurring3 "github.com/lloydmeta/tasques/internal/infra/cron/task/recurring"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/index"
 	"github.com/lloydmeta/tasques/internal/infra/server/routing/tasks"
@@ -44,7 +46,9 @@ type Components struct {
 	recurringTasksRoutesHandler recurring.RoutesHandler
 	recurringRunningLock        leader.Lock
 	recurringRunner             leader.RecurringTaskRunner
-	logFile                     *os.File
+
+	dynamicScheduler recurring2.Scheduler
+	logFile          *os.File
 }
 
 func NewComponents(config *config.App) (*Components, error) {
@@ -81,6 +85,8 @@ func NewComponents(config *config.App) (*Components, error) {
 		recurringRunnerLock := buildRecurringTasksLeaderLock(config.Recurring.LeaderLock, esClient)
 		recurringRunner := buildRecurringRunner(config.Recurring, tasksService, recurringRunnerLock)
 
+		dynamicScheduler := recurring3.NewScheduler(tasksService)
+
 		return &Components{
 			Config:                      config,
 			esClient:                    esClient,
@@ -88,12 +94,13 @@ func NewComponents(config *config.App) (*Components, error) {
 			recurringTasksRoutesHandler: recurringTasksRoutesHandler,
 			recurringRunningLock:        recurringRunnerLock,
 			recurringRunner:             recurringRunner,
+			dynamicScheduler:            dynamicScheduler,
 		}, nil
 	}
 }
 
 func (c *Components) Run() {
-	validation.SetUpValidators()
+	validation.SetUpValidators(c.dynamicScheduler)
 
 	ginRouter := gin.New()
 
