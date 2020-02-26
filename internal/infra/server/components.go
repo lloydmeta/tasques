@@ -25,6 +25,7 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/index"
+	"github.com/lloydmeta/tasques/internal/infra/server/routing/tasks"
 
 	"github.com/lloydmeta/tasques/internal/config"
 	infraLeader "github.com/lloydmeta/tasques/internal/infra/elasticsearch/leader"
@@ -36,7 +37,7 @@ import (
 type Components struct {
 	Config               *config.App
 	esClient             *elasticsearch.Client
-	taskRoutesHandler    routing.TasksRoutesHandler
+	taskRoutesHandler    tasks.RoutesHandler
 	recurringRunningLock leader.Lock
 	recurringRunner      leader.RecurringTaskRunner
 	logFile              *os.File
@@ -57,9 +58,8 @@ func NewComponents(config *config.App) (*Components, error) {
 		tasksService := infraTask.NewService(esClient, config.Tasks.Defaults)
 		tasksController := taskController.New(tasksService, config.Tasks.Defaults)
 
-		handler := routing.TasksRoutesHandler{
+		handler := tasks.RoutesHandler{
 			TasksDefaultsSettings: config.Tasks.Defaults,
-			AuthSettings:          config.Auth,
 			Controller:            tasksController,
 		}
 
@@ -85,7 +85,8 @@ func (c *Components) Run() {
 	ginRouter.NoRoute(routing.NoRoute)
 	ginRouter.NoMethod(routing.NoMethod)
 
-	c.taskRoutesHandler.RegisterRoutes(ginRouter)
+	topLevelRouterGroup := routing.NewTopLevelRoutesGroup(c.Config.Auth, ginRouter)
+	c.taskRoutesHandler.RegisterRoutes(topLevelRouterGroup)
 
 	// use ginSwagger middleware to serve the API docs
 	ginRouter.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

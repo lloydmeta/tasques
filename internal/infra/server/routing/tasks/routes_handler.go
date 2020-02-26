@@ -1,4 +1,4 @@
-package routing
+package tasks
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	"github.com/lloydmeta/tasques/internal/config"
 	"github.com/lloydmeta/tasques/internal/domain/queue"
 	domainTask "github.com/lloydmeta/tasques/internal/domain/task"
+	"github.com/lloydmeta/tasques/internal/infra/server/routing"
 
 	"github.com/gin-gonic/gin"
 
@@ -20,32 +21,16 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/worker"
 )
 
-var rootPath = "/tasques"
 var WorkerIdHeaderKey = "X-TASQUES-WORKER-ID"
 var taskIdPathKey = "task_id"
 var queuePathKey = "queue"
 
-type TasksRoutesHandler struct {
+type RoutesHandler struct {
 	TasksDefaultsSettings config.TasksDefaults
-	AuthSettings          *config.Auth
 	Controller            taskController.Controller
 }
 
-func (h *TasksRoutesHandler) RegisterRoutes(ginEngine *gin.Engine) {
-	accounts := make(gin.Accounts)
-	if h.AuthSettings != nil {
-		for _, bAuthUser := range h.AuthSettings.BasicAuth {
-			accounts[bAuthUser.Name] = bAuthUser.Password
-		}
-	}
-
-	var routerGroup *gin.RouterGroup
-	if len(accounts) > 0 {
-		routerGroup = ginEngine.Group(rootPath, gin.BasicAuth(accounts))
-	} else {
-		routerGroup = ginEngine.Group(rootPath)
-	}
-
+func (h *RoutesHandler) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.POST("", h.create)
 	routerGroup.GET("/:"+queuePathKey+"/:"+taskIdPathKey, h.get)
 	routerGroup.POST("/claims", h.claim)
@@ -65,10 +50,10 @@ func (h *TasksRoutesHandler) RegisterRoutes(ginEngine *gin.Engine) {
 // @Success 201 {object} task.Task
 // @Failure 400 {object} common.Body "Invalid JSON"
 // @Router /tasques [post]
-func (h *TasksRoutesHandler) create(c *gin.Context) {
+func (h *RoutesHandler) create(c *gin.Context) {
 	var newTask task.NewTask
 	if err := c.ShouldBindJSON(&newTask); err != nil {
-		handleJsonSerdesErr(c, err)
+		routing.HandleJsonSerdesErr(c, err)
 	} else {
 		if t, err := h.Controller.Create(c.Request.Context(), &newTask); err == nil {
 			c.JSON(http.StatusCreated, t)
@@ -89,7 +74,7 @@ func (h *TasksRoutesHandler) create(c *gin.Context) {
 // @Success 200 {object} task.Task
 // @Failure 404 {object} common.Body "Task does not exist"
 // @Router /tasques/{queue}/{id} [get]
-func (h *TasksRoutesHandler) get(c *gin.Context) {
+func (h *RoutesHandler) get(c *gin.Context) {
 	var taskId = domainTask.Id(c.Param(taskIdPathKey))
 	var queueStr = c.Param(queuePathKey)
 	queueName, err := queue.NameFromString(queueStr)
@@ -114,13 +99,13 @@ func (h *TasksRoutesHandler) get(c *gin.Context) {
 // @Param   claim body task.Claim true "The request body"
 // @Success 200 {array} task.Task
 // @Router /tasques/claims [post]
-func (h *TasksRoutesHandler) claim(c *gin.Context) {
+func (h *RoutesHandler) claim(c *gin.Context) {
 	if workerId, err := getWorkerIdOrErr(c); err != nil {
-		handleApiErr(c, err)
+		routing.HandleApiErr(c, err)
 	} else {
 		var claim task.Claim
 		if err := c.ShouldBindJSON(&claim); err != nil {
-			handleJsonSerdesErr(c, err)
+			routing.HandleJsonSerdesErr(c, err)
 		} else {
 			var blockFor time.Duration
 			if claim.BlockFor == nil {
@@ -157,7 +142,7 @@ func (h *TasksRoutesHandler) claim(c *gin.Context) {
 // @Failure 403 {object} common.Body "Worker currently has not claimed the Task"
 // @Failure 404 {object} common.Body "Task does not exist"
 // @Router /tasques/claims/{queue}/{id} [delete]
-func (h *TasksRoutesHandler) unClaim(c *gin.Context) {
+func (h *RoutesHandler) unClaim(c *gin.Context) {
 	var taskId = domainTask.Id(c.Param(taskIdPathKey))
 	var queueStr = c.Param(queuePathKey)
 	queueName, err := queue.NameFromString(queueStr)
@@ -165,7 +150,7 @@ func (h *TasksRoutesHandler) unClaim(c *gin.Context) {
 		badQueueNames(c, []error{err})
 	} else {
 		if workerId, err := getWorkerIdOrErr(c); err != nil {
-			handleApiErr(c, err)
+			routing.HandleApiErr(c, err)
 		} else {
 			if t, err := h.Controller.UnClaim(c.Request.Context(), *workerId, *queueName, taskId); err == nil {
 				c.JSON(http.StatusOK, t)
@@ -191,7 +176,7 @@ func (h *TasksRoutesHandler) unClaim(c *gin.Context) {
 // @Failure 403 {object} common.Body "Worker currently has not claimed the Task"
 // @Failure 404 {object} common.Body "Task does not exist"
 // @Router /tasques/reports/{queue}/{id} [put]
-func (h *TasksRoutesHandler) reportIn(c *gin.Context) {
+func (h *RoutesHandler) reportIn(c *gin.Context) {
 	var taskId = domainTask.Id(c.Param(taskIdPathKey))
 	var queueStr = c.Param(queuePathKey)
 	queueName, err := queue.NameFromString(queueStr)
@@ -200,10 +185,10 @@ func (h *TasksRoutesHandler) reportIn(c *gin.Context) {
 	} else {
 		var newReport task.NewReport
 		if err := c.ShouldBindJSON(&newReport); err != nil {
-			handleJsonSerdesErr(c, err)
+			routing.HandleJsonSerdesErr(c, err)
 		} else {
 			if workerId, err := getWorkerIdOrErr(c); err != nil {
-				handleApiErr(c, err)
+				routing.HandleApiErr(c, err)
 			} else {
 				if t, err := h.Controller.ReportIn(c.Request.Context(), *workerId, *queueName, taskId, newReport); err == nil {
 					c.JSON(http.StatusOK, t)
@@ -230,7 +215,7 @@ func (h *TasksRoutesHandler) reportIn(c *gin.Context) {
 // @Failure 403 {object} common.Body "Worker currently has not claimed the Task"
 // @Failure 404 {object} common.Body "Task does not exist"
 // @Router /tasques/done/{queue}/{id} [put]
-func (h *TasksRoutesHandler) markDone(c *gin.Context) {
+func (h *RoutesHandler) markDone(c *gin.Context) {
 	var taskId = domainTask.Id(c.Param(taskIdPathKey))
 	var queueStr = c.Param(queuePathKey)
 	queueName, err := queue.NameFromString(queueStr)
@@ -239,10 +224,10 @@ func (h *TasksRoutesHandler) markDone(c *gin.Context) {
 	} else {
 		var newResult task.Success
 		if err := c.ShouldBindJSON(&newResult); err != nil {
-			handleJsonSerdesErr(c, err)
+			routing.HandleJsonSerdesErr(c, err)
 		} else {
 			if workerId, err := getWorkerIdOrErr(c); err != nil {
-				handleApiErr(c, err)
+				routing.HandleApiErr(c, err)
 			} else {
 				if t, err := h.Controller.MarkDone(c.Request.Context(), *workerId, *queueName, taskId, newResult.Data); err == nil {
 					c.JSON(http.StatusOK, t)
@@ -269,7 +254,7 @@ func (h *TasksRoutesHandler) markDone(c *gin.Context) {
 // @Failure 403 {object} common.Body "Worker currently has not claimed the Task"
 // @Failure 404 {object} common.Body "Task does not exist"
 // @Router /tasques/failed/{queue}/{id} [put]
-func (h *TasksRoutesHandler) markFailed(c *gin.Context) {
+func (h *RoutesHandler) markFailed(c *gin.Context) {
 	var taskId = domainTask.Id(c.Param(taskIdPathKey))
 	var queueStr = c.Param(queuePathKey)
 	queueName, err := queue.NameFromString(queueStr)
@@ -278,10 +263,10 @@ func (h *TasksRoutesHandler) markFailed(c *gin.Context) {
 	} else {
 		var newResult task.Failure
 		if err := c.ShouldBindJSON(&newResult); err != nil {
-			handleJsonSerdesErr(c, err)
+			routing.HandleJsonSerdesErr(c, err)
 		} else {
 			if workerId, err := getWorkerIdOrErr(c); err != nil {
-				handleApiErr(c, err)
+				routing.HandleApiErr(c, err)
 			} else {
 				if t, err := h.Controller.MarkFailed(c.Request.Context(), *workerId, *queueName, taskId, newResult.Data); err == nil {
 					c.JSON(http.StatusOK, t)
@@ -311,20 +296,6 @@ func getWorkerIdOrErr(c *gin.Context) (*worker.Id, *common.ApiError) {
 	}
 }
 
-func handleApiErr(c *gin.Context, apiError *common.ApiError) {
-	c.JSON(apiError.StatusCode, apiError.Body)
-}
-
-func handleJsonSerdesErr(c *gin.Context, err error) {
-	errResp := common.ApiError{
-		StatusCode: http.StatusBadRequest,
-		Body: common.Body{
-			Message: err.Error(),
-		},
-	}
-	handleApiErr(c, &errResp)
-}
-
 func badQueueNames(c *gin.Context, queueNameErrors []error) {
 	errorMsgs := make([]string, 0, len(queueNameErrors))
 	for _, err := range queueNameErrors {
@@ -336,5 +307,5 @@ func badQueueNames(c *gin.Context, queueNameErrors []error) {
 			Message: strings.Join(errorMsgs, ", "),
 		},
 	}
-	handleApiErr(c, &errResp)
+	routing.HandleApiErr(c, &errResp)
 }

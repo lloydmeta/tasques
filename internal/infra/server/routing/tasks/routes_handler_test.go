@@ -1,4 +1,4 @@
-package routing
+package tasks
 
 import (
 	"bytes"
@@ -20,6 +20,7 @@ import (
 	domainTask "github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/worker"
 	"github.com/lloydmeta/tasques/internal/infra/server/binding/validation"
+	"github.com/lloydmeta/tasques/internal/infra/server/routing"
 )
 
 func init() {
@@ -35,8 +36,9 @@ func workerHeaders() http.Header {
 func setupRouter() (*gin.Engine, *mockTodoController) {
 	engine := gin.Default()
 	mockController := mockTodoController{}
-	handler := TasksRoutesHandler{Controller: &mockController}
-	handler.RegisterRoutes(engine)
+	topLevelRouterGroup := routing.NewTopLevelRoutesGroup(nil, engine)
+	handler := RoutesHandler{Controller: &mockController}
+	handler.RegisterRoutes(topLevelRouterGroup)
 
 	return engine, &mockController
 }
