@@ -103,6 +103,289 @@ func Test_impl_Create(t *testing.T) {
 	}
 }
 
+func Test_impl_Update(t *testing.T) {
+	type fields struct {
+		recurringTasksService *mockRecurringTasksService
+	}
+	type args struct {
+		id   recurring.Id
+		task *apiRecurring.TaskUpdate
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *apiRecurring.Task
+		wantErr bool
+	}{
+		{
+			name: "not found error",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{
+					updateOverride: func() (task *recurring.Task, err error) {
+						return nil, recurring.NotFound{ID: "m"}
+					},
+				},
+			},
+			args: args{
+				id:   "asdfasf",
+				task: &apiRecurring.TaskUpdate{},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid version error",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{
+					updateOverride: func() (task *recurring.Task, err error) {
+						return nil, recurring.InvalidVersion{ID: "m"}
+					},
+				},
+			},
+			args: args{
+				id:   "asdfasf",
+				task: &apiRecurring.TaskUpdate{},
+			},
+			want:    nil,
+			wantErr: true,
+		}, {
+			name: "successful, with filled in top-level fields",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{},
+			},
+			args: args{
+				id: "asdfasf",
+				task: &apiRecurring.TaskUpdate{
+					ScheduleExpression: &mockApiRecurringTask.ScheduleExpression,
+					TaskDefinition: &apiRecurring.TaskDefinition{
+						Queue: "q",
+						Kind:  "k",
+					},
+				},
+			},
+			want:    &mockApiRecurringTask,
+			wantErr: false,
+		},
+		{
+			name: "successful, with empty fields",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{},
+			},
+			args: args{
+				id:   "asdfasf",
+				task: &apiRecurring.TaskUpdate{},
+			},
+			want:    &mockApiRecurringTask,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &impl{
+				recurringTasksService: tt.fields.recurringTasksService,
+				tasksConfig:           cfg,
+			}
+			got, err := c.Update(ctx, tt.args.id, tt.args.task)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.updateCalled)
+			if err != nil && !tt.wantErr {
+				t.Error(err)
+			} else {
+				assert.EqualValues(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_impl_Get(t *testing.T) {
+	type fields struct {
+		recurringTasksService *mockRecurringTasksService
+	}
+	type args struct {
+		id recurring.Id
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *apiRecurring.Task
+		wantErr bool
+	}{
+		{
+			name: "not found error",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{
+					getOverride: func() (task *recurring.Task, err error) {
+						return nil, recurring.NotFound{ID: "m"}
+					},
+				},
+			},
+			args: args{
+				id: "asdfasf",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "successful",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{},
+			},
+			args: args{
+				id: "asdfasf",
+			},
+			want:    &mockApiRecurringTask,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &impl{
+				recurringTasksService: tt.fields.recurringTasksService,
+				tasksConfig:           cfg,
+			}
+			got, err := c.Get(ctx, tt.args.id)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.getCalled)
+			if err != nil && !tt.wantErr {
+				t.Error(err)
+			} else {
+				assert.EqualValues(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_impl_Delete(t *testing.T) {
+	type fields struct {
+		recurringTasksService *mockRecurringTasksService
+	}
+	type args struct {
+		id recurring.Id
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *apiRecurring.Task
+		wantErr bool
+	}{
+		{
+			name: "not found error",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{
+					deleteOverride: func() (task *recurring.Task, err error) {
+						return nil, recurring.NotFound{ID: "m"}
+					},
+				},
+			},
+			args: args{
+				id: "asdfasf",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid version error",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{
+					deleteOverride: func() (task *recurring.Task, err error) {
+						return nil, recurring.InvalidVersion{ID: "m"}
+					},
+				},
+			},
+			args: args{
+				id: "asdfasf",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "successful",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{},
+			},
+			args: args{
+				id: "asdfasf",
+			},
+			want:    &mockApiRecurringTask,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &impl{
+				recurringTasksService: tt.fields.recurringTasksService,
+				tasksConfig:           cfg,
+			}
+			got, err := c.Delete(ctx, tt.args.id)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.deleteCalled)
+			if err != nil && !tt.wantErr {
+				t.Error(err)
+			} else {
+				assert.EqualValues(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_impl_List(t *testing.T) {
+	type fields struct {
+		recurringTasksService *mockRecurringTasksService
+	}
+	type args struct {
+		id recurring.Id
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []apiRecurring.Task
+		wantErr bool
+	}{
+		{
+			name: "bad data error",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{
+					allOverride: func() (task []recurring.Task, err error) {
+						return nil, recurring.InvalidPersistedData{}
+					},
+				},
+			},
+			args: args{
+				id: "asdfasf",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "successful",
+			fields: fields{
+				recurringTasksService: &mockRecurringTasksService{},
+			},
+			args: args{
+				id: "asdfasf",
+			},
+			want:    []apiRecurring.Task{mockApiRecurringTask},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &impl{
+				recurringTasksService: tt.fields.recurringTasksService,
+				tasksConfig:           cfg,
+			}
+			got, err := c.List(ctx)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.allCalled)
+			if err != nil && !tt.wantErr {
+				t.Error(err)
+			} else {
+				assert.EqualValues(t, tt.want, got)
+			}
+		})
+	}
+}
+
 func Test_handleErr(t *testing.T) {
 	type args struct {
 		err error
