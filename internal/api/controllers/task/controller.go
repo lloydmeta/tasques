@@ -1,4 +1,4 @@
-package controllers
+package task
 
 import (
 	"context"
@@ -14,9 +14,9 @@ import (
 	"github.com/lloydmeta/tasques/internal/api/models/task"
 )
 
-// TasksController is an interface that defines the methods that are available to the routing
+// Controller is an interface that defines the methods that are available to the routing
 // layer. It is framework-agnostic
-type TasksController interface {
+type Controller interface {
 
 	// Create returns s a Task based on the passed-in NewTask
 	//
@@ -42,8 +42,8 @@ type TasksController interface {
 	UnClaim(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError)
 }
 
-func NewTasksController(tasksService domainTask.Service, tasksConfig config.TasksDefaults) TasksController {
-	return &tasksControllerImpl{
+func New(tasksService domainTask.Service, tasksConfig config.TasksDefaults) Controller {
+	return &impl{
 		tasksService: tasksService,
 		tasksConfig:  tasksConfig,
 		getNowUtc: func() time.Time {
@@ -52,13 +52,13 @@ func NewTasksController(tasksService domainTask.Service, tasksConfig config.Task
 	}
 }
 
-type tasksControllerImpl struct {
+type impl struct {
 	tasksService domainTask.Service
 	tasksConfig  config.TasksDefaults
 	getNowUtc    func() time.Time
 }
 
-func (c *tasksControllerImpl) Create(ctx context.Context, newTask *task.NewTask) (*task.Task, *common.ApiError) {
+func (c *impl) Create(ctx context.Context, newTask *task.NewTask) (*task.Task, *common.ApiError) {
 	domainNewTask := newTask.ToDomainNewTask(c.tasksConfig.RetryTimes, c.getNowUtc(), c.tasksConfig.WorkerProcessingTimeout)
 	result, err := c.tasksService.Create(ctx, &domainNewTask)
 	if err != nil {
@@ -69,7 +69,7 @@ func (c *tasksControllerImpl) Create(ctx context.Context, newTask *task.NewTask)
 	}
 }
 
-func (c *tasksControllerImpl) Get(ctx context.Context, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError) {
+func (c *impl) Get(ctx context.Context, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError) {
 	result, err := c.tasksService.Get(ctx, queue, taskId)
 	if err != nil {
 		return nil, handleErr(err)
@@ -79,7 +79,7 @@ func (c *tasksControllerImpl) Get(ctx context.Context, queue queue.Name, taskId 
 	}
 }
 
-func (c *tasksControllerImpl) Claim(ctx context.Context, workerId worker.Id, queues []queue.Name, number uint, blockFor time.Duration) ([]task.Task, *common.ApiError) {
+func (c *impl) Claim(ctx context.Context, workerId worker.Id, queues []queue.Name, number uint, blockFor time.Duration) ([]task.Task, *common.ApiError) {
 	result, err := c.tasksService.Claim(ctx, workerId, queues, number, blockFor)
 	if err != nil {
 		return nil, handleErr(err)
@@ -92,7 +92,7 @@ func (c *tasksControllerImpl) Claim(ctx context.Context, workerId worker.Id, que
 	}
 }
 
-func (c *tasksControllerImpl) ReportIn(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, report task.NewReport) (*task.Task, *common.ApiError) {
+func (c *impl) ReportIn(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, report task.NewReport) (*task.Task, *common.ApiError) {
 	domainNewReport := domainTask.NewReport(report)
 	result, err := c.tasksService.ReportIn(ctx, workerId, queue, taskId, domainNewReport)
 	if err != nil {
@@ -103,7 +103,7 @@ func (c *tasksControllerImpl) ReportIn(ctx context.Context, workerId worker.Id, 
 	}
 }
 
-func (c *tasksControllerImpl) MarkDone(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, success *domainTask.Success) (*task.Task, *common.ApiError) {
+func (c *impl) MarkDone(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, success *domainTask.Success) (*task.Task, *common.ApiError) {
 	result, err := c.tasksService.MarkDone(ctx, workerId, queue, taskId, success)
 	if err != nil {
 		return nil, handleErr(err)
@@ -113,7 +113,7 @@ func (c *tasksControllerImpl) MarkDone(ctx context.Context, workerId worker.Id, 
 	}
 }
 
-func (c *tasksControllerImpl) MarkFailed(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, failure *domainTask.Failure) (*task.Task, *common.ApiError) {
+func (c *impl) MarkFailed(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, failure *domainTask.Failure) (*task.Task, *common.ApiError) {
 	result, err := c.tasksService.MarkFailed(ctx, workerId, queue, taskId, failure)
 	if err != nil {
 		return nil, handleErr(err)
@@ -123,7 +123,7 @@ func (c *tasksControllerImpl) MarkFailed(ctx context.Context, workerId worker.Id
 	}
 }
 
-func (c *tasksControllerImpl) UnClaim(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError) {
+func (c *impl) UnClaim(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError) {
 	result, err := c.tasksService.UnClaim(ctx, workerId, queue, taskId)
 	if err != nil {
 		return nil, handleErr(err)

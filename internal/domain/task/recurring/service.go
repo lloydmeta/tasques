@@ -21,7 +21,7 @@ type Service interface {
 	// Deletes a single Task
 	//
 	// Errors if no such Task is found that is non-deleted
-	Delete(ctx context.Context, id Id) error
+	Delete(ctx context.Context, id Id) (*Task, error)
 
 	// Loads returns all persisted RecurringTasks that have not been deleted
 	//

@@ -569,7 +569,7 @@ func Test_esRecurringService_Delete(t *testing.T) {
 					return
 				}
 			}
-			err := service.Delete(ctx, tt.args.id)
+			_, err := service.Delete(ctx, tt.args.id)
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.IsType(t, tt.errType, err)

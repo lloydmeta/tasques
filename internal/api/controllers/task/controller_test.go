@@ -1,4 +1,4 @@
-package controllers
+package task
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func TestNewTasksController(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.NotPanics(t, func() { NewTasksController(tt.args.tasksService, tasksConfig) })
+			assert.NotPanics(t, func() { New(tt.args.tasksService, tasksConfig) })
 		})
 	}
 }
@@ -147,7 +147,7 @@ func Test_tasksControllerImpl_Claim(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &tasksControllerImpl{
+			c := &impl{
 				tasksService: tt.fields.tasksService,
 				tasksConfig:  tasksConfig,
 				getNowUtc:    func() time.Time { return time.Now().UTC() },
@@ -209,7 +209,7 @@ func Test_tasksControllerImpl_Create(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &tasksControllerImpl{
+			c := &impl{
 				tasksService: tt.fields.tasksService,
 				tasksConfig:  tasksConfig,
 				getNowUtc:    func() time.Time { return time.Now().UTC() },
@@ -267,7 +267,7 @@ func Test_tasksControllerImpl_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &tasksControllerImpl{
+			c := &impl{
 				tasksService: tt.fields.tasksService,
 				tasksConfig:  tasksConfig,
 				getNowUtc:    func() time.Time { return time.Now().UTC() },
@@ -329,7 +329,7 @@ func Test_tasksControllerImpl_MarkDone(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &tasksControllerImpl{
+			c := &impl{
 				tasksService: tt.fields.tasksService,
 				tasksConfig:  tasksConfig,
 				getNowUtc:    func() time.Time { return time.Now().UTC() },
@@ -391,7 +391,7 @@ func Test_tasksControllerImpl_MarkFailed(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &tasksControllerImpl{
+			c := &impl{
 				tasksService: tt.fields.tasksService,
 				tasksConfig:  tasksConfig,
 				getNowUtc:    func() time.Time { return time.Now().UTC() },
@@ -459,7 +459,7 @@ func Test_tasksControllerImpl_ReportIn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &tasksControllerImpl{
+			c := &impl{
 				tasksService: tt.fields.tasksService,
 				tasksConfig:  tasksConfig,
 				getNowUtc:    func() time.Time { return time.Now().UTC() },
@@ -520,7 +520,7 @@ func Test_tasksControllerImpl_UnClaim(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &tasksControllerImpl{
+			c := &impl{
 				tasksService: tt.fields.tasksService,
 				tasksConfig:  tasksConfig,
 				getNowUtc:    func() time.Time { return time.Now().UTC() },

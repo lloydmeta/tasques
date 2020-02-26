@@ -79,7 +79,7 @@ func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 			fields{
 				Queue: queue.Name("q"),
 				Kind:  "run",
-				RunAt: &timeZero,
+				RunAt: &TimeZero,
 			},
 			args{
 				defaultRetryTimes:    10,

@@ -143,14 +143,18 @@ func (e *EsService) Get(ctx context.Context, id recurring.Id, includeSoftDeleted
 	}
 }
 
-func (e *EsService) Delete(ctx context.Context, id recurring.Id) error {
+func (e *EsService) Delete(ctx context.Context, id recurring.Id) (*recurring.Task, error) {
 	existing, err := e.Get(ctx, id, false)
 	if err != nil {
-		return err
+		return nil, err
 	} else {
 		existing.IntoDeleted()
 		_, updateErr := e.Update(ctx, existing)
-		return updateErr
+		if updateErr != nil {
+			return nil, updateErr
+		} else {
+			return existing, nil
+		}
 	}
 }
 

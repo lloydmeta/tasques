@@ -14,8 +14,6 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/worker"
 )
 
-type JsonObj = map[string]interface{}
-
 type Duration time.Duration
 
 type NewTask struct {
@@ -86,10 +84,10 @@ type Task struct {
 	Metadata          common.Metadata     `json:"metadata" binding:"required"`
 }
 
-var timeZero time.Time
+var TimeZero time.Time
 
 // Converts an API model to the domain model
-func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time, defaulProcessingTimeout time.Duration) task.NewTask {
+func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time, defaultProcessingTimeout time.Duration) task.NewTask {
 	var domainRetryTimes task.RetryTimes
 	if t.RetryTimes != nil {
 		domainRetryTimes = *t.RetryTimes
@@ -103,7 +101,7 @@ func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time
 		domainPriority = task.Priority(0)
 	}
 	var domainRunAt task.RunAt
-	if t.RunAt != nil && *t.RunAt != timeZero {
+	if t.RunAt != nil && *t.RunAt != TimeZero {
 		domainRunAt = task.RunAt(*t.RunAt)
 	} else {
 		domainRunAt = task.RunAt(defaultRunAt)
@@ -112,7 +110,7 @@ func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time
 	if t.ProcessingTimeout != nil {
 		processingTimeout = task.ProcessingTimeout(*t.ProcessingTimeout)
 	} else {
-		processingTimeout = task.ProcessingTimeout(defaulProcessingTimeout)
+		processingTimeout = task.ProcessingTimeout(defaultProcessingTimeout)
 	}
 
 	return task.NewTask{
@@ -168,14 +166,7 @@ func FromDomainTask(dTask *task.Task) Task {
 		Context:           dTask.Context,
 		LastClaimed:       lastClaimed,
 		LastEnqueuedAt:    time.Time(dTask.LastEnqueuedAt),
-		Metadata: common.Metadata{
-			CreatedAt:  time.Time(dTask.Metadata.CreatedAt),
-			ModifiedAt: time.Time(dTask.Metadata.ModifiedAt),
-			Version: common.Version{
-				SeqNum:      uint64(dTask.Metadata.Version.SeqNum),
-				PrimaryTerm: uint64(dTask.Metadata.Version.PrimaryTerm),
-			},
-		},
+		Metadata:          common.FromDomainMetadata(&dTask.Metadata),
 	}
 }
 

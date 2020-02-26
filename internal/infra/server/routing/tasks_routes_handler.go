@@ -8,13 +8,13 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	taskController "github.com/lloydmeta/tasques/internal/api/controllers/task"
 	"github.com/lloydmeta/tasques/internal/config"
 	"github.com/lloydmeta/tasques/internal/domain/queue"
 	domainTask "github.com/lloydmeta/tasques/internal/domain/task"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/lloydmeta/tasques/internal/api/controllers"
 	"github.com/lloydmeta/tasques/internal/api/models/common"
 	"github.com/lloydmeta/tasques/internal/api/models/task"
 	"github.com/lloydmeta/tasques/internal/domain/worker"
@@ -28,7 +28,7 @@ var queuePathKey = "queue"
 type TasksRoutesHandler struct {
 	TasksDefaultsSettings config.TasksDefaults
 	AuthSettings          *config.Auth
-	Controller            controllers.TasksController
+	Controller            taskController.Controller
 }
 
 func (h *TasksRoutesHandler) RegisterRoutes(ginEngine *gin.Engine) {
