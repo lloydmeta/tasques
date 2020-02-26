@@ -63,6 +63,13 @@ func Test_handleErr(t *testing.T) {
 			500,
 		},
 		{
+			"NotFound errors should 404",
+			args{
+				domainTask.NotFound{},
+			},
+			404,
+		},
+		{
 			"NotClaimed errors should 400",
 			args{
 				domainTask.NotClaimed{},
