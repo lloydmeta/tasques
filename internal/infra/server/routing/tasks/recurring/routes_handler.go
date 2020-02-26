@@ -15,7 +15,6 @@ var subPath = "recurring_tasques"
 
 var recurringTaskKey = "recurring_task_id"
 
-// TODO write tests
 type RoutesHandler struct {
 	Controller recurringController.Controller
 }

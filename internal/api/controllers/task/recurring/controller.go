@@ -11,7 +11,6 @@ import (
 	domainRecurring "github.com/lloydmeta/tasques/internal/domain/task/recurring"
 )
 
-// TODO add tests
 type Controller interface {
 
 	// Create returns a Task based on the passed in NewTask

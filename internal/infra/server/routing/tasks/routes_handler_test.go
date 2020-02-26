@@ -33,9 +33,9 @@ func workerHeaders() http.Header {
 	return h
 }
 
-func setupRouter() (*gin.Engine, *mockTodoController) {
+func setupRouter() (*gin.Engine, *mockTasksController) {
 	engine := gin.Default()
-	mockController := mockTodoController{}
+	mockController := mockTasksController{}
 	topLevelRouterGroup := routing.NewTopLevelRoutesGroup(nil, engine)
 	handler := RoutesHandler{Controller: &mockController}
 	handler.RegisterRoutes(topLevelRouterGroup)
@@ -395,7 +395,7 @@ func mockApiTask() task.Task {
 	return task.FromDomainTask(&dTask)
 }
 
-type mockTodoController struct {
+type mockTasksController struct {
 	createCalled       uint
 	createOverride     func(ctx context.Context, newTask *task.NewTask) (*task.Task, *common.ApiError)
 	getCalled          uint
@@ -412,7 +412,7 @@ type mockTodoController struct {
 	unClaimOverride    func(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError)
 }
 
-func (m *mockTodoController) Create(ctx context.Context, newTask *task.NewTask) (*task.Task, *common.ApiError) {
+func (m *mockTasksController) Create(ctx context.Context, newTask *task.NewTask) (*task.Task, *common.ApiError) {
 	m.createCalled++
 	if m.createOverride != nil {
 		return m.createOverride(ctx, newTask)
@@ -432,7 +432,7 @@ func (m *mockTodoController) Create(ctx context.Context, newTask *task.NewTask) 
 	}
 }
 
-func (m *mockTodoController) Get(ctx context.Context, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError) {
+func (m *mockTasksController) Get(ctx context.Context, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError) {
 	m.getCalled++
 	if m.getOverride != nil {
 		return m.getOverride(ctx, queue, taskId)
@@ -444,7 +444,7 @@ func (m *mockTodoController) Get(ctx context.Context, queue queue.Name, taskId d
 	}
 }
 
-func (m *mockTodoController) Claim(ctx context.Context, workerId worker.Id, queues []queue.Name, number uint, blockFor time.Duration) ([]task.Task, *common.ApiError) {
+func (m *mockTasksController) Claim(ctx context.Context, workerId worker.Id, queues []queue.Name, number uint, blockFor time.Duration) ([]task.Task, *common.ApiError) {
 	m.claimCalled++
 	if m.claimOverride != nil {
 		return m.claimOverride(ctx, workerId, queues, number, blockFor)
@@ -461,7 +461,7 @@ func (m *mockTodoController) Claim(ctx context.Context, workerId worker.Id, queu
 	}
 }
 
-func (m *mockTodoController) ReportIn(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, report task.NewReport) (*task.Task, *common.ApiError) {
+func (m *mockTasksController) ReportIn(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, report task.NewReport) (*task.Task, *common.ApiError) {
 	m.reportCalled++
 	if m.reportInOverride != nil {
 		return m.reportInOverride(ctx, workerId, queue, taskId, report)
@@ -483,7 +483,7 @@ func (m *mockTodoController) ReportIn(ctx context.Context, workerId worker.Id, q
 	}
 }
 
-func (m *mockTodoController) MarkDone(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, success *domainTask.Success) (*task.Task, *common.ApiError) {
+func (m *mockTasksController) MarkDone(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, success *domainTask.Success) (*task.Task, *common.ApiError) {
 	m.markDoneCalled++
 	if m.markDoneOverride != nil {
 		return m.markDoneOverride(ctx, workerId, queue, taskId, success)
@@ -505,7 +505,7 @@ func (m *mockTodoController) MarkDone(ctx context.Context, workerId worker.Id, q
 	}
 }
 
-func (m *mockTodoController) MarkFailed(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, failed *domainTask.Failure) (*task.Task, *common.ApiError) {
+func (m *mockTasksController) MarkFailed(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id, failed *domainTask.Failure) (*task.Task, *common.ApiError) {
 	m.markFailedCalled++
 	if m.markFailedOverride != nil {
 		return m.markFailedOverride(ctx, workerId, queue, taskId, failed)
@@ -527,7 +527,7 @@ func (m *mockTodoController) MarkFailed(ctx context.Context, workerId worker.Id,
 	}
 }
 
-func (m *mockTodoController) UnClaim(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError) {
+func (m *mockTasksController) UnClaim(ctx context.Context, workerId worker.Id, queue queue.Name, taskId domainTask.Id) (*task.Task, *common.ApiError) {
 	m.unClaimCalled++
 	if m.unClaimOverride != nil {
 		return m.unClaimOverride(ctx, workerId, queue, taskId)
