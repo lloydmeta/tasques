@@ -2,9 +2,12 @@
 
 This is an example server-worker app.
 
-### Start up a local Elasticsearch on port 9200
+### Setup
 
-`docker run -p 9200:9200 --env discovery.type=single-node elasticsearch:7.5.2`
+If you have k8s installed, you can use the Makefile in the `k8s` dir to install ECK, spin up the needed infra,
+and get credentials that you can put into the relevant config files.
+
+If you don't you'll need to spin these up separately.
 
 ### Run the Tasques server
 
