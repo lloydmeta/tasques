@@ -49,6 +49,7 @@ func DefaultTemplateSetup(esClient *elasticsearch.Client) TemplatesSetup {
 		Templates: []Template{
 			TasquesQueuesTemplate,
 			TasquesLocksTemplate,
+			TasquesRecurringTasksTemplate,
 		},
 	}
 }
@@ -149,7 +150,7 @@ func (t TemplatesNotInstalled) Error() string {
 
 // Templates
 
-// Template queue template (disables dynamic for most object fields to
+// Tasques queues template (disables dynamic for most object fields to
 // prevent mapping conflicts and mapping explosions)
 var TasquesQueuesTemplate = NewTemplate(
 	".tasques_queues_index_template",
@@ -267,5 +268,84 @@ var TasquesLocksTemplate = NewTemplate(
 			"enabled": true,
 		},
 		"dynamic": true,
+	},
+)
+
+// Tasques recurring tasks template (disables dynamic for user-defined object fields to
+// prevent mapping conflicts and mapping explosions)
+var TasquesRecurringTasksTemplate = NewTemplate(
+	".tasques_recurring_tasks_index_template",
+	[]Pattern{".tasques_recurring_tasks"},
+	Mappings{
+		"_source": Json{
+			"enabled": true,
+		},
+		"dynamic": true, // We use persistence models anyways, so we can make sure mappings don't  get out of hand
+		"properties": Json{
+			"is_deleted": Json{
+				"type": "boolean",
+			},
+			"loaded_at": Json{
+				"type": "date",
+			},
+			"metadata": Json{
+				"properties": Json{
+					"created_at": Json{
+						"type": "date",
+					},
+					"modified_at": Json{
+						"type": "date",
+					},
+				},
+			},
+			"schedule_expression": Json{
+				"type": "text",
+				"fields": Json{
+					"keyword": Json{
+						"type":         "keyword",
+						"ignore_above": 256,
+					},
+				},
+			},
+			"task_definition": Json{
+				"properties": Json{
+					"kind": Json{
+						"type": "text",
+						"fields": Json{
+							"keyword": Json{
+								"type":         "keyword",
+								"ignore_above": 256,
+							},
+						},
+					},
+					"priority": Json{
+						"type": "long",
+					},
+					"args": Json{
+						"type":    "object",
+						"enabled": false, // free-form JSON from users don't get indexed to prevent explosions
+					},
+					"context": Json{
+						"type":    "object",
+						"enabled": false,
+					},
+					"processing_timeout": Json{
+						"type": "long",
+					},
+					"queue": Json{
+						"type": "text",
+						"fields": Json{
+							"keyword": Json{
+								"type":         "keyword",
+								"ignore_above": 256,
+							},
+						},
+					},
+					"retry_times": Json{
+						"type": "long",
+					},
+				},
+			},
+		},
 	},
 )
