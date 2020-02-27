@@ -236,7 +236,7 @@ func (e *EsService) ReapTimedOutTasks(ctx context.Context, scrollSize uint, scro
 
 // Scrolls through all tasks using a search body, taking care to close all response bodies and close scrolls
 func (e *EsService) scanTasks(ctx context.Context, searchBody jsonObjMap, scrollTtl time.Duration, doWithBatch func(tasks []task.Task) error) error {
-	log.Info().Msg("Beginning to scan tasks .. ")
+	log.Debug().Msg("Beginning to scan tasks .. ")
 	log.Debug().Interface("searchBody", searchBody).Msg("Scanning tasks")
 	tasksWithScrollId, err := e.initSearch(ctx, searchBody, scrollTtl)
 	if err != nil {
@@ -264,7 +264,7 @@ func (e *EsService) scanTasks(ctx context.Context, searchBody jsonObjMap, scroll
 		scrollId = nextTasksWithScrollId.ScrollId
 		scrollIds = append(scrollIds, nextTasksWithScrollId.ScrollId)
 	}
-	log.Info().Msg("Scanning tasks end ")
+	log.Debug().Msg("Scanning tasks end ")
 	return nil
 }
 

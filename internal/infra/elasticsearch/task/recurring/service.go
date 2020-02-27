@@ -306,7 +306,7 @@ func (e *EsService) scanRecurringTasks(ctx context.Context, searchBody jsonObjMa
 		scrollId = nextTasksWithScrollId.ScrollId
 		scrollIds = append(scrollIds, nextTasksWithScrollId.ScrollId)
 	}
-	log.Info().Msg("Scanning recurring tasks end ")
+	log.Debug().Msg("Scanning recurring tasks end ")
 	return nil
 }
 
