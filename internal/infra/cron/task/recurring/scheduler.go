@@ -43,11 +43,25 @@ func (i *schedulerImpl) Schedule(task *recurring.Task) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
+	if log.Debug().Enabled() {
+		log.Debug().
+			Str("id", string(task.ID)).
+			Str("expression", string(task.ScheduleExpression)).
+			Msg("Scheduling recurring Task to Cron")
+	}
+
 	if entryId, ok := i.idsToEntryIds[task.ID]; ok {
 		i.cron.Remove(entryId)
 		delete(i.idsToEntryIds, task.ID)
 	}
 	entryId, err := i.cron.AddFunc(string(task.ScheduleExpression), func() {
+		if log.Debug().Enabled() {
+			log.Debug().
+				Str("id", string(task.ID)).
+				Str("expression", string(task.ScheduleExpression)).
+				Msg("Enqueuing Task")
+		}
+
 		_, err := i.tasksService.Create(context.Background(), i.taskDefToNewTask(&task.TaskDefinition))
 		if err != nil {
 			log.Error().

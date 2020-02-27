@@ -2,16 +2,36 @@ package recurring
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/lloydmeta/tasques/internal/domain/leader"
 )
 
 type void struct{}
 
 var member void
 
+type state uint32
+
+func (s state) String() string {
+	return statesToString[s]
+}
+
+const (
+	NOT_LEADER state = iota
+	LEADER
+)
+
+var statesToString = map[state]string{
+	NOT_LEADER: "NOT_LEADER",
+	LEADER:     "LEADER",
+}
+
+// TODO tests
 // Manager is in charge of reading recurring Tasks and scheduling them
 // to be run, keeping things synced and updated on calls to its methods.
 type Manager struct {
@@ -22,28 +42,105 @@ type Manager struct {
 
 	getUTC func() time.Time
 
-	mu sync.Mutex
+	leaderState state
+	mu          sync.Mutex
 }
+
+// Returns a new recurring Tasks Manager
+func New(scheduler Scheduler, service Service) *Manager {
+	return &Manager{
+		scheduler:      scheduler,
+		service:        service,
+		scheduledTasks: make(map[Id]Task),
+		getUTC: func() time.Time {
+			return time.Now().UTC()
+		},
+		leaderState: NOT_LEADER,
+		mu:          sync.Mutex{},
+	}
+}
+
+// Returns a function that conditionally syncs Recurring Task changes from the data store,
+// ensuring tasks that are deleted are stopped, tasks that are created or updated are scheduled
+// properly
+func (m *Manager) RecurringSyncFunc() func(isLeader leader.Checker) error {
+	return m.recurringFunc("sync of unseen changes", m.syncNotLoaded)
+}
+
+// Returns a function that conditionally runs a full sync of Recurring Task changes from the data store
+func (m *Manager) RecurringSyncEnforceFunc() func(isLeader leader.Checker) error {
+	return m.recurringFunc("full sync check", m.enforceSync)
+}
+
+// Returns a sync-related function
+func (m *Manager) recurringFunc(description string, ifStillLeader func() error) func(leaderChecker leader.Checker) error {
+	return func(leaderChecker leader.Checker) error {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		previousLeaderState := m.leaderState
+		currentLeaderState := leaderState(leaderChecker)
+		m.leaderState = currentLeaderState
+		switch {
+		case previousLeaderState == NOT_LEADER && currentLeaderState == LEADER:
+			log.Info().
+				Str("previous", previousLeaderState.String()).
+				Str("current", currentLeaderState.String()).
+				Msg("Newly acquired leader lock, initiating complete refresh of Recurring Tasks")
+			return m.completeReload()
+		case previousLeaderState == LEADER && currentLeaderState == LEADER:
+			log.Debug().
+				Str("previous", previousLeaderState.String()).
+				Str("current", currentLeaderState.String()).
+				Msgf("Still has leader lock, initiating %s", description)
+			return ifStillLeader()
+		case previousLeaderState == LEADER && currentLeaderState == NOT_LEADER:
+			log.Info().
+				Str("previous", previousLeaderState.String()).
+				Str("current", currentLeaderState.String()).
+				Msg("Lost leader lock, initiating unload of all Recurring Tasks.")
+			m.stopAll()
+			return nil
+		case previousLeaderState == NOT_LEADER && currentLeaderState == NOT_LEADER:
+			log.Debug().
+				Str("previous", previousLeaderState.String()).
+				Str("current", currentLeaderState.String()).
+				Msg("Still does not have leader lock, ignoring")
+			return nil
+		default:
+			return fmt.Errorf("Impossible leader states. Previous [%v] Current [%v]", previousLeaderState.String(), currentLeaderState.String())
+		}
+	}
+}
+
+func leaderState(leaderChecker leader.Checker) state {
+	if leaderChecker.IsLeader() {
+		return LEADER
+	} else {
+		return NOT_LEADER
+	}
+}
+
+// ALL OF THE FOLLOWING METHODS ARE NOT SYNCED
+// because they should only be called from the functions
+// returned above, which *are* synced
 
 // Stops all recurring Tasks and removes them from the in-memory
 // map
-func (m *Manager) unloadAll() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.unlockedStopAll()
+// stops all scheduled tasks and removes them from the in-memory lookup
+func (m *Manager) stopAll() {
+	for _, t := range m.scheduledTasks {
+		m.unscheduleAndRemoveFromScheduledTasksState(&t)
+	}
 }
 
 // Stops all recurring Tasks and removes them from the in-memory
 // map, then reads them from the backing store and schedules them
 // and loads them in memory
 func (m *Manager) completeReload() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	ctx := context.Background()
 
 	// Stop everything first
-	m.unlockedStopAll()
+	m.stopAll()
 
 	all, err := m.service.All(ctx)
 	if err != nil {
@@ -62,9 +159,6 @@ func (m *Manager) completeReload() error {
 //   internal state
 // * Newly-updated + created Tasks are unscheduled, scheduled, updating state
 func (m *Manager) syncNotLoaded() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	ctx := context.Background()
 
 	notLoadeds, err := m.service.NotLoaded(ctx)
@@ -102,9 +196,6 @@ func (m *Manager) syncNotLoaded() error {
 }
 
 func (m *Manager) enforceSync() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	log.Info().Msg("Checking if scheduled Recurring Tasks are in sync with data store.")
 
 	ctx := context.Background()
@@ -165,16 +256,6 @@ func (m *Manager) enforceSync() error {
 		return nil
 	}
 
-}
-
-// The methods below are *_NOT_* locked and should only be called from called
-// from within locking methods
-
-// stops all scheduled tasks and removes them from the in-memory lookup
-func (m *Manager) unlockedStopAll() {
-	for _, t := range m.scheduledTasks {
-		m.unscheduleAndRemoveFromScheduledTasksState(&t)
-	}
 }
 
 // Attempts to schedules a Task to be inserted at its specified interval.
