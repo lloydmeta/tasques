@@ -204,7 +204,7 @@ func (e *EsLock) submitNameForLeader() (*esLeaderInfo, error) {
 
 // Tries to update the doc in ES so that the current lock is the leader
 func (e *EsLock) jostleForLeader(primaryT primaryTerm, seqNo seqNum) (*esLeaderInfo, error) {
-	tx := e.tracer.BackgroundTx("leader-lock-getLeaderDoc")
+	tx := e.tracer.BackgroundTx("leader-lock-jostleForLeader")
 	defer tx.End()
 	ctx := tx.Context()
 
