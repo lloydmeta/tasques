@@ -318,8 +318,6 @@ func processScrollResp(rawResp *esapi.Response) (*tasksWithScrollId, error) {
 			ScrollId: scrollResp.ScrollId,
 			Tasks:    tasks,
 		}, nil
-	case 404:
-		return nil, nil
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
 	}

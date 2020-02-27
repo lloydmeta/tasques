@@ -294,56 +294,56 @@ func (m *Manager) unscheduleAndRemoveFromScheduledTasksState(t *Task) {
 }
 
 func (m *Manager) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, loaded []Task) error {
-	result, err := m.service.MarkLoaded(ctx, loaded)
-	if err != nil {
-		log.Error().
-			Err(err).
-			Msg("Failed to mark scheduledTasks recurring tasks as scheduledTasks; not updating internal state and simply returning the error because subsequent refreshes will eventually fix this")
-		return err
-	}
+	if len(loaded) > 0 {
+		result, err := m.service.MarkLoaded(ctx, loaded)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Msg("Failed to mark scheduledTasks recurring tasks as scheduledTasks; not updating internal state and simply returning the error because subsequent refreshes will eventually fix this")
+			return err
+		}
 
-	// unschedule failures; we'll grab them next time
-	if len(result.NotFounds) != 0 {
-		log.Error().
-			Interface("tasks", result.NotFounds).
-			Msg("Unscheduling recurring tasks that could not be found when marking as scheduledTasks")
-		for _, t := range result.NotFounds {
-			m.unscheduleAndRemoveFromScheduledTasksState(&t)
+		// unschedule failures; we'll grab them next time
+		if len(result.NotFounds) != 0 {
+			log.Error().
+				Interface("tasks", result.NotFounds).
+				Msg("Unscheduling recurring tasks that could not be found when marking as loaded")
+			for _, t := range result.NotFounds {
+				m.unscheduleAndRemoveFromScheduledTasksState(&t)
+			}
 		}
-	}
-	if len(result.VersionConflicts) != 0 {
-		log.Error().
-			Interface("tasks", result.VersionConflicts).
-			Msg("Tasks that resulted in version conflicts when marking as scheduledTasks, not updating internal state instead of unscheduling because subsequent refreshes will eventually fix this")
-	}
-	if len(result.Others) != 0 {
-		log.Error().
-			Interface("tasks", result.Others).
-			Msg("Tasks that resulted in other errors when marking as scheduledTasks, not updating internal state instead of unscheduling because subsequent refreshes will eventually fix this")
-	}
+		if len(result.VersionConflicts) != 0 {
+			log.Error().
+				Interface("tasks", result.VersionConflicts).
+				Msg("Tasks that resulted in version conflicts when marking as loaded, not updating internal state instead of unscheduling because subsequent refreshes will eventually fix this")
+		}
+		if len(result.Others) != 0 {
+			log.Error().
+				Interface("tasks", result.Others).
+				Msg("Tasks that resulted in other errors when marking as loaded, not updating internal state instead of unscheduling because subsequent refreshes will eventually fix this")
+		}
 
-	// Stuff non-deleted Tasks that failed to update with "not found" into the internal
-	// scheduled Tasks map.
-	//
-	// Successful updates will get updated metadata versions, while the failures won't, but
-	// it doesn't matter much, we'll get them in subsequent calls
-	for _, t := range result.Successes {
-		if !t.IsDeleted {
-			m.scheduledTasks[t.ID] = t
+		// Stuff non-deleted Tasks that failed to update with "not found" into the internal
+		// scheduled Tasks map.
+		//
+		// Successful updates will get updated metadata versions, while the failures won't, but
+		// it doesn't matter much, we'll get them in subsequent calls
+		for _, t := range result.Successes {
+			if !t.IsDeleted {
+				m.scheduledTasks[t.ID] = t
+			}
+		}
+		for _, t := range result.VersionConflicts {
+			if !t.IsDeleted {
+				m.scheduledTasks[t.ID] = t
+			}
+		}
+		for _, r := range result.Others {
+			t := r.RecurringTask
+			if !t.IsDeleted {
+				m.scheduledTasks[t.ID] = t
+			}
 		}
 	}
-	for _, t := range result.VersionConflicts {
-		if !t.IsDeleted {
-			m.scheduledTasks[t.ID] = t
-		}
-	}
-	for _, r := range result.Others {
-		t := r.RecurringTask
-		if !t.IsDeleted {
-			m.scheduledTasks[t.ID] = t
-		}
-	}
-
 	return nil
-
 }

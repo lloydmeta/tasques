@@ -73,8 +73,8 @@ func NewComponents(config *config.App) (*Components, error) {
 
 		recurringTasksService := infraRecurring.NewService(
 			esClient,
-			config.Recurring.TimedOutTasksReaper.ScrollSize,
-			config.Recurring.TimedOutTasksReaper.ScrollTtl,
+			config.Recurring.RecurringTasks.ScrollSize,
+			config.Recurring.RecurringTasks.ScrollTtl,
 		)
 		recurringTasksController := recurringController.New(recurringTasksService, config.Tasks.Defaults)
 

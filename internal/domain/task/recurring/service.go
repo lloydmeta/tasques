@@ -63,7 +63,7 @@ type BulkUpdateOtherError struct {
 
 // <-- Domain Errors
 
-// ServiceErr is an error interface for TodoRepo
+// ServiceErr is an error interface for Service
 type ServiceErr interface {
 	error
 	Id() Id

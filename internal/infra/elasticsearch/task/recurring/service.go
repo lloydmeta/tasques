@@ -278,8 +278,8 @@ func (e *EsService) MarkLoaded(ctx context.Context, toMarks []recurring.Task) (*
 // This is the main method that should be used for listing and scrolling through a potentially large collection of
 // RecurringTasks
 func (e *EsService) scanRecurringTasks(ctx context.Context, searchBody jsonObjMap, scrollTtl time.Duration, doWithBatch func(recurrings []recurring.Task) error) error {
-	log.Info().Msg("Beginning to scan recurring tasks")
-	log.Debug().Interface("searchBody", searchBody).Msg("Scanning tasks")
+	log.Debug().Msg("Beginning to scan recurring tasks")
+	log.Debug().Interface("searchBody", searchBody).Msg("Scanning recurring tasks")
 	recurringTasksWithScrollId, err := e.initSearch(ctx, searchBody, scrollTtl)
 	if err != nil {
 		return err
@@ -316,10 +316,11 @@ func (e *EsService) initSearch(ctx context.Context, searchBody jsonObjMap, scrol
 		return nil, common.JsonSerdesErr{Underlying: []error{err}}
 	}
 	searchReq := esapi.SearchRequest{
-		Scroll:         scrollTtl, // make this configurable
-		Index:          []string{string(TasquesRecurringTasksIndex)},
-		AllowNoIndices: esapi.BoolPtr(true),
-		Body:           bytes.NewReader(searchBodyBytes),
+		Scroll:            scrollTtl, // make this configurable
+		Index:             []string{TasquesRecurringTasksIndex},
+		AllowNoIndices:    esapi.BoolPtr(true),
+		IgnoreUnavailable: esapi.BoolPtr(true), // Recurring Tasks Index might not exist yet
+		Body:              bytes.NewReader(searchBodyBytes),
 	}
 
 	rawResp, err := searchReq.Do(ctx, e.client)
@@ -359,8 +360,6 @@ func processScrollResp(rawResp *esapi.Response) (*recurringTasksWithScrollId, er
 			ScrollId:       scrollResp.ScrollId,
 			RecurringTasks: tasks,
 		}, nil
-	case 404:
-		return nil, nil
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
 	}
