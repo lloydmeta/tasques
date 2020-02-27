@@ -39,7 +39,7 @@ func NewScheduler(tasksService task.Service) recurring.Scheduler {
 	}
 }
 
-func (i *schedulerImpl) Schedule(task *recurring.Task) error {
+func (i *schedulerImpl) Schedule(task recurring.Task) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 

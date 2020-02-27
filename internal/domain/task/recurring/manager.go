@@ -129,7 +129,7 @@ func leaderState(leaderChecker leader.Checker) state {
 // stops all scheduled tasks and removes them from the in-memory lookup
 func (m *Manager) stopAll() {
 	for _, t := range m.scheduledTasks {
-		m.unscheduleAndRemoveFromScheduledTasksState(&t)
+		m.unscheduleAndRemoveFromScheduledTasksState(t)
 	}
 }
 
@@ -147,7 +147,7 @@ func (m *Manager) completeReload(ctx context.Context) error {
 
 	var loaded []Task
 	for _, t := range all {
-		m.scheduleAndAddToList(&t, &loaded)
+		m.scheduleAndAddToList(t, &loaded)
 	}
 	return m.markAsLoadedAndUpdateScheduledTasksState(ctx, loaded)
 }
@@ -176,14 +176,14 @@ func (m *Manager) syncNotLoaded(ctx context.Context) error {
 
 	// handle deleteds by unscheduling
 	for _, deleted := range deletedTasks {
-		m.unscheduleAndRemoveFromScheduledTasksState(&deleted)
+		m.unscheduleAndRemoveFromScheduledTasksState(deleted)
 	}
 
 	var scheduled []Task
 	// handle new and updateds by unscheduling if present, then scheduling
 	for _, updated := range newOrUpdatedTasks {
-		m.unscheduleAndRemoveFromScheduledTasksState(&updated)
-		m.scheduleAndAddToList(&updated, &scheduled)
+		m.unscheduleAndRemoveFromScheduledTasksState(updated)
+		m.scheduleAndAddToList(updated, &scheduled)
 	}
 
 	// "acked" just means we've taken it into account, hence why we add deleteds in there as well.
@@ -260,7 +260,7 @@ func (m *Manager) enforceSync(ctx context.Context) error {
 //
 // Note that this *does not* update the internal scheduled Tasks map because we only
 // want to update it _after_ we mark it as loaded in ES and have updated metadata version
-func (m *Manager) scheduleAndAddToList(t *Task, loaded *[]Task) {
+func (m *Manager) scheduleAndAddToList(t Task, loaded *[]Task) {
 	err := m.scheduler.Schedule(t)
 	if err != nil {
 		log.Error().
@@ -269,13 +269,13 @@ func (m *Manager) scheduleAndAddToList(t *Task, loaded *[]Task) {
 			Str("schedule", string(t.ScheduleExpression)).
 			Msg("Failed to schedule")
 	} else {
-		*loaded = append(*loaded, *t)
+		*loaded = append(*loaded, t)
 	}
 }
 
 // Schedules a Task to be inserted at its specified interval
 // _and_ removes it from the internal scheduled Tasks map
-func (m *Manager) unscheduleAndRemoveFromScheduledTasksState(t *Task) {
+func (m *Manager) unscheduleAndRemoveFromScheduledTasksState(t Task) {
 	success := m.scheduler.Unschedule(t.ID)
 	if !success {
 		if log.Debug().Enabled() {
@@ -304,7 +304,7 @@ func (m *Manager) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, 
 				Interface("tasks", result.NotFounds).
 				Msg("Unscheduling recurring tasks that could not be found when marking as loaded")
 			for _, t := range result.NotFounds {
-				m.unscheduleAndRemoveFromScheduledTasksState(&t)
+				m.unscheduleAndRemoveFromScheduledTasksState(t)
 			}
 		}
 		if len(result.VersionConflicts) != 0 {
