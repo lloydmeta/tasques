@@ -34,6 +34,9 @@ Some of these may be goals :p
 3. `go run ./app` and hit the endpoints.
   - For Swagger, go to [localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
     ![Swagger](swagger.png)
+    
+There is also an example project that demonstrates the application-tasques-worker relationship more thoroughly; please
+see `example/ciphers` for more details.
 
 ##### APM
 

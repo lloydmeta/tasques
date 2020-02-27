@@ -128,13 +128,7 @@ func (e *EsService) Claim(ctx context.Context, workerId worker.Id, queues []queu
 
 	startUTC := e.getUTC()
 
-	retryWait := e.settings.BlockForRetryMinWait
-	if e.settings.BlockForRetryMaxRetries > 0 {
-		evenRetryWait := time.Duration(uint64(blockFor.Nanoseconds())/uint64(e.settings.BlockForRetryMaxRetries)) * time.Nanosecond
-		if evenRetryWait > retryWait {
-			retryWait = evenRetryWait
-		}
-	}
+	retryWait := e.retryWait(blockFor)
 
 	firstTry := true
 
