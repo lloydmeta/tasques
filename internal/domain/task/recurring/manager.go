@@ -47,8 +47,8 @@ type Manager struct {
 }
 
 // Returns a new recurring Tasks Manager
-func New(scheduler Scheduler, service Service) *Manager {
-	return &Manager{
+func NewManager(scheduler Scheduler, service Service) Manager {
+	return Manager{
 		scheduler:      scheduler,
 		service:        service,
 		scheduledTasks: make(map[Id]Task),
@@ -97,7 +97,7 @@ func (m *Manager) recurringFunc(description string, ifStillLeader func() error) 
 			log.Info().
 				Str("previous", previousLeaderState.String()).
 				Str("current", currentLeaderState.String()).
-				Msg("Lost leader lock, initiating unload of all Recurring Tasks.")
+				Msg("Lost leader lock, initiating stop and unloading of all Recurring Tasks.")
 			m.stopAll()
 			return nil
 		case previousLeaderState == NOT_LEADER && currentLeaderState == NOT_LEADER:

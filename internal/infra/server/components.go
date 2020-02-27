@@ -46,9 +46,9 @@ type Components struct {
 	recurringTasksRoutesHandler recurring.RoutesHandler
 	recurringRunningLock        leader.Lock
 	recurringRunner             leader.RecurringTaskRunner
-
-	dynamicScheduler recurring2.Scheduler
-	logFile          *os.File
+	dynamicScheduler            recurring2.Scheduler
+	recurringTasksManager       recurring2.Manager
+	logFile                     *os.File
 }
 
 func NewComponents(config *config.App) (*Components, error) {
@@ -82,10 +82,11 @@ func NewComponents(config *config.App) (*Components, error) {
 			Controller: recurringTasksController,
 		}
 
-		recurringRunnerLock := buildRecurringTasksLeaderLock(config.Recurring.LeaderLock, esClient)
-		recurringRunner := buildRecurringRunner(config.Recurring, tasksService, recurringRunnerLock)
-
 		dynamicScheduler := recurring3.NewScheduler(tasksService)
+		recurringTasksManager := recurring2.NewManager(dynamicScheduler, recurringTasksService)
+
+		recurringRunnerLock := buildRecurringTasksLeaderLock(config.Recurring.LeaderLock, esClient)
+		recurringRunner := buildRecurringRunner(config.Recurring, recurringRunnerLock, tasksService, &recurringTasksManager)
 
 		return &Components{
 			Config:                      config,
@@ -95,6 +96,7 @@ func NewComponents(config *config.App) (*Components, error) {
 			recurringRunningLock:        recurringRunnerLock,
 			recurringRunner:             recurringRunner,
 			dynamicScheduler:            dynamicScheduler,
+			recurringTasksManager:       recurringTasksManager,
 		}, nil
 	}
 }
@@ -161,7 +163,12 @@ func buildRecurringTasksLeaderLock(conf config.LeaderLock, esClient *elasticsear
 	)
 }
 
-func buildRecurringRunner(conf config.Recurring, tasksService task.Service, leaderLock leader.Lock) leader.RecurringTaskRunner {
+func buildRecurringRunner(
+	conf config.Recurring,
+	leaderLock leader.Lock,
+	tasksService task.Service,
+	recurringTasksManager *recurring2.Manager,
+) leader.RecurringTaskRunner {
 	recurringTasks := []leader.RecurringTask{
 		// This task is not *strictly* required, because we can always do some form of clever querying like
 		// filtering for FAILED + timedout + remaining attempts > 0 when claiming tasks, but IMHO the data
@@ -177,6 +184,16 @@ func buildRecurringRunner(conf config.Recurring, tasksService task.Service, lead
 					return nil
 				}
 			},
+		),
+		leader.NewRecurringTask(
+			"recurring-tasks-sync",
+			conf.RecurringTasks.SyncRunInterval,
+			recurringTasksManager.RecurringSyncFunc(),
+		),
+		leader.NewRecurringTask(
+			"recurring-tasks-sync-enforcer",
+			conf.RecurringTasks.EnforceSyncRunInterval,
+			recurringTasksManager.RecurringSyncEnforceFunc(),
 		),
 	}
 
