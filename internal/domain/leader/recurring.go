@@ -7,8 +7,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// RecurringTask defines a recurring task to run if we have the leader lock
-type RecurringTask struct {
+// InternalRecurringFunction defines a recurring task to run if we have the leader lock
+type InternalRecurringFunction struct {
 	name string
 	// How often to run it
 	interval time.Duration
@@ -16,36 +16,36 @@ type RecurringTask struct {
 	f func(isLeader Checker) error
 }
 
-// NewRecurringTask returns a new recurring task (but doesn't run it)
+// NewInternalRecurringFunction returns a new recurring task (but doesn't run it)
 // Also assumes f is non-nil.
-func NewRecurringTask(name string, interval time.Duration, f func(isLeader Checker) error) RecurringTask {
-	return RecurringTask{name: name, interval: interval, f: f}
+func NewInternalRecurringFunction(name string, interval time.Duration, f func(isLeader Checker) error) InternalRecurringFunction {
+	return InternalRecurringFunction{name: name, interval: interval, f: f}
 }
 
-// RecurringTaskRunner is a runner of RecurringTasks
-type RecurringTaskRunner struct {
-	tasks      []RecurringTask
+// InternalRecurringFunctionRunner is a runner of InternalRecurringFunction
+type InternalRecurringFunctionRunner struct {
+	functions  []InternalRecurringFunction
 	stopped    uint32
 	leaderLock Lock
 }
 
-// NewRecurringTaskRunner creates a new RecurringTaskRunner
-func NewRecurringTaskRunner(tasks []RecurringTask, leaderLock Lock) RecurringTaskRunner {
-	return RecurringTaskRunner{
-		tasks:      tasks,
+// NewInternalRecurringFunctionRunner creates a new InternalRecurringFunctionRunner
+func NewInternalRecurringFunctionRunner(tasks []InternalRecurringFunction, leaderLock Lock) InternalRecurringFunctionRunner {
+	return InternalRecurringFunctionRunner{
+		functions:  tasks,
 		stopped:    1,
 		leaderLock: leaderLock,
 	}
 }
 
-// Start begins the RecurringTaskRunner loop
-func (r *RecurringTaskRunner) Start() {
+// Start begins the InternalRecurringFunctionRunner loop
+func (r *InternalRecurringFunctionRunner) Start() {
 	atomic.StoreUint32(&r.stopped, 0)
-	for _, t := range r.tasks {
-		go func(task RecurringTask, isStopped func() bool, hasLock func() bool) {
-			for isStopped() {
+	for _, t := range r.functions {
+		go func(task InternalRecurringFunction, shouldRun func() bool, isLeader Checker) {
+			for shouldRun() {
 				startIterationTime := time.Now().UTC()
-				err := task.f(r.leaderLock)
+				err := task.f(isLeader)
 				if err != nil {
 					log.Error().Err(err).Msgf("Failed when running task [%s]", task.name)
 				}
@@ -55,16 +55,16 @@ func (r *RecurringTaskRunner) Start() {
 				}
 			}
 			log.Info().Msgf("Recurring task ended [%s]", task.name)
-		}(t, r.shouldRun, r.leaderLock.IsLeader)
+		}(t, r.shouldRun, r.leaderLock)
 	}
 }
 
-// Stop stops the RecurringTaskRunner loop
-func (r *RecurringTaskRunner) Stop() {
-	log.Info().Msg("Stopping recurring tasks")
+// Stop stops the InternalRecurringFunctionRunner loop
+func (r *InternalRecurringFunctionRunner) Stop() {
+	log.Info().Msg("Stopping recurring functions")
 	atomic.StoreUint32(&r.stopped, 1)
 }
 
-func (r *RecurringTaskRunner) shouldRun() bool {
+func (r *InternalRecurringFunctionRunner) shouldRun() bool {
 	return atomic.LoadUint32(&r.stopped) == 0
 }

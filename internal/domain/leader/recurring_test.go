@@ -39,8 +39,8 @@ func TestRecurringTaskRunner_Start(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			tasks := []RecurringTask{
-				NewRecurringTask(
+			tasks := []InternalRecurringFunction{
+				NewInternalRecurringFunction(
 					"inc",
 					10*time.Millisecond,
 					func(checker Checker) error {
@@ -52,7 +52,7 @@ func TestRecurringTaskRunner_Start(t *testing.T) {
 			// Sanity check. Nothing should run if before Start() is called
 			assert.EqualValues(t, 0, tt.fields.incrementer.Value())
 
-			r := NewRecurringTaskRunner(tasks, tt.fields.leaderLock)
+			r := NewInternalRecurringFunctionRunner(tasks, tt.fields.leaderLock)
 			r.Start()
 			if tt.shouldRun {
 				assert.Eventually(t, func() bool {

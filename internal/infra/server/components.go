@@ -45,7 +45,7 @@ type Components struct {
 	taskRoutesHandler           tasks.RoutesHandler
 	recurringTasksRoutesHandler recurring.RoutesHandler
 	recurringRunningLock        leader.Lock
-	recurringRunner             leader.RecurringTaskRunner
+	recurringRunner             leader.InternalRecurringFunctionRunner
 	dynamicScheduler            recurring2.Scheduler
 	recurringTasksManager       recurring2.Manager
 	logFile                     *os.File
@@ -168,12 +168,12 @@ func buildRecurringRunner(
 	leaderLock leader.Lock,
 	tasksService task.Service,
 	recurringTasksManager *recurring2.Manager,
-) leader.RecurringTaskRunner {
-	recurringTasks := []leader.RecurringTask{
+) leader.InternalRecurringFunctionRunner {
+	recurringFunctions := []leader.InternalRecurringFunction{
 		// This task is not *strictly* required, because we can always do some form of clever querying like
 		// filtering for FAILED + timedout + remaining attempts > 0 when claiming tasks, but IMHO the data
 		// the actual state is easier to understand, and leads to more readable and maintainable code
-		leader.NewRecurringTask(
+		leader.NewInternalRecurringFunction(
 			"timed-out-task-runner",
 			conf.TimedOutTasksReaper.RunInterval,
 			func(isLeader leader.Checker) error {
@@ -185,17 +185,17 @@ func buildRecurringRunner(
 				}
 			},
 		),
-		leader.NewRecurringTask(
+		leader.NewInternalRecurringFunction(
 			"recurring-tasks-sync",
 			conf.RecurringTasks.SyncRunInterval,
 			recurringTasksManager.RecurringSyncFunc(),
 		),
-		leader.NewRecurringTask(
+		leader.NewInternalRecurringFunction(
 			"recurring-tasks-sync-enforcer",
 			conf.RecurringTasks.EnforceSyncRunInterval,
 			recurringTasksManager.RecurringSyncEnforceFunc(),
 		),
 	}
 
-	return leader.NewRecurringTaskRunner(recurringTasks, leaderLock)
+	return leader.NewInternalRecurringFunctionRunner(recurringFunctions, leaderLock)
 }
