@@ -23,7 +23,7 @@ type NewTask struct {
 	RetryTimes        *task.RetryTimes `json:"retry_times,omitempty" example:"10"`
 	Kind              task.Kind        `json:"kind" binding:"required" example:"sayHello"`
 	Priority          *task.Priority   `json:"priority,omitempty"`
-	ProcessingTimeout *Duration        `json:"processing_timeout,omitempty" swaggertype:"string" swaggertype:"string" example:"30m"`
+	ProcessingTimeout *Duration        `json:"processing_timeout,omitempty" swaggertype:"string" example:"30m"`
 	RunAt             *time.Time       `json:"run_at,omitempty" swaggertype:"string" format:"date-time"`
 	Args              *task.Args       `json:"args,omitempty" swaggertype:"object"`
 	Context           *task.Context    `json:"context,omitempty" swaggertype:"object"`
