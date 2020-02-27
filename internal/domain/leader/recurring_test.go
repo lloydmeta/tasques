@@ -44,7 +44,9 @@ func TestRecurringTaskRunner_Start(t *testing.T) {
 					"inc",
 					10*time.Millisecond,
 					func(checker Checker) error {
-						tt.fields.incrementer.incr()
+						if checker.IsLeader() {
+							tt.fields.incrementer.incr()
+						}
 						return nil
 					},
 				),
