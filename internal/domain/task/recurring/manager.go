@@ -318,7 +318,7 @@ func (m *Manager) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, 
 				Msg("Tasks that resulted in other errors when marking as loaded, not updating internal state instead of unscheduling because subsequent refreshes will eventually fix this")
 		}
 
-		// Stuff non-deleted Tasks that failed to update with "not found" into the internal
+		// Stuff non-deleted Tasks that failed to update with anything but "not found" into the internal
 		// scheduled Tasks map.
 		//
 		// Successful updates will get updated metadata versions, while the failures won't, but
