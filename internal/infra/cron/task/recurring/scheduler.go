@@ -45,6 +45,7 @@ func (i *schedulerImpl) Schedule(task *recurring.Task) error {
 
 	if entryId, ok := i.idsToEntryIds[task.ID]; ok {
 		i.cron.Remove(entryId)
+		delete(i.idsToEntryIds, task.ID)
 	}
 	entryId, err := i.cron.AddFunc(string(task.ScheduleExpression), func() {
 		_, err := i.tasksService.Create(context.Background(), i.taskDefToNewTask(&task.TaskDefinition))

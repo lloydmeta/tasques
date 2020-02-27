@@ -122,6 +122,7 @@ func (c *Components) Run() {
 
 	c.recurringRunningLock.Start()
 	c.recurringRunner.Start()
+	c.dynamicScheduler.Start()
 
 	go func() {
 		// Serve connections
@@ -136,6 +137,7 @@ func (c *Components) Run() {
 	<-quit
 	log.Info().Msg("Server shutdown initialised ...")
 
+	c.dynamicScheduler.Stop()
 	c.recurringRunner.Stop()
 	c.recurringRunningLock.Stop()
 

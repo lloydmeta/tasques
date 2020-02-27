@@ -435,11 +435,6 @@ func buildNotLoadedSinceSearchBody(pageSize uint) jsonObjMap {
 					"bool": jsonObjMap{
 						"must": []jsonObjMap{
 							{
-								"term": jsonObjMap{
-									"is_deleted": false,
-								},
-							},
-							{
 								"bool": jsonObjMap{
 									"must_not": []jsonObjMap{
 										{

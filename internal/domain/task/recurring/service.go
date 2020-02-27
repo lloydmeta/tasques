@@ -28,7 +28,7 @@ type Service interface {
 	// Sorted by id
 	All(ctx context.Context) ([]Task, error)
 
-	// NotLoaded returns all non-deleted, not-loaded RecurringTasks.
+	// NotLoaded returns not-loaded (seen by recurring tasks manager) RecurringTasks.
 	//
 	// This is used to find tasks that have been modified but not loaded.
 	NotLoaded(ctx context.Context) ([]Task, error)

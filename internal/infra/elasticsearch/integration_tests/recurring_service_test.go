@@ -629,7 +629,20 @@ func Test_esRecurringService_NotLoaded(t *testing.T) {
 	var expectedAbsentIds []recurring.Id
 	var expectedPresentIds []recurring.Id
 
-	// seed deleted
+	// seed deleted; these need to be visible to sync with newly-deleted items
+	seedRecurringTasks(
+		t,
+		seedNumber,
+		func(i uint) string {
+			return fmt.Sprintf("loaded-since-deleted-%d", i)
+		},
+		true,
+		now,
+		&now,
+		&expectedAbsentIds,
+	)
+
+	// seed deleted; these need to be visible to sync with newly-deleted items
 	seedRecurringTasks(
 		t,
 		seedNumber,
@@ -639,7 +652,7 @@ func Test_esRecurringService_NotLoaded(t *testing.T) {
 		true,
 		now,
 		nil,
-		&expectedAbsentIds,
+		&expectedPresentIds,
 	)
 
 	// seed loaded
@@ -688,7 +701,6 @@ func Test_esRecurringService_NotLoaded(t *testing.T) {
 	assert.GreaterOrEqual(t, uint(len(notLoaded)), uint(len(expectedPresentIds)))
 
 	for _, listed := range notLoaded {
-		assert.False(t, bool(listed.IsDeleted))
 		assert.Nil(t, listed.LoadedAt)
 	}
 
@@ -827,6 +839,7 @@ func Test_esRecurringService_MarkLoaded(t *testing.T) {
 	assert.Empty(t, result.Others)
 
 	for _, created := range createds {
+
 		retrieved, err := service.Get(ctx, created.ID, false)
 		if err != nil {
 			t.Error(err)
