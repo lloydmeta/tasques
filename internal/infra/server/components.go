@@ -50,7 +50,7 @@ type Components struct {
 	recurringRunningLock        leader.Lock
 	recurringRunner             leader.InternalRecurringFunctionRunner
 	dynamicScheduler            recurring2.Scheduler
-	recurringTasksManager       recurring2.Manager
+	recurringTasksManager       *recurring2.Manager
 	logFile                     *os.File
 }
 
@@ -102,7 +102,7 @@ func NewComponents(config *config.App) (*Components, error) {
 			recurringRunningLock:        recurringRunnerLock,
 			recurringRunner:             recurringRunner,
 			dynamicScheduler:            dynamicScheduler,
-			recurringTasksManager:       recurringTasksManager,
+			recurringTasksManager:       &recurringTasksManager,
 		}, nil
 	}
 }
