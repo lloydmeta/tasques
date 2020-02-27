@@ -32,7 +32,9 @@ definitions:
       id:
         type: string
       schedule_expression:
-        example: '* * * * *'
+        description: A schedule expression; can be any valid cron expression, with
+          some support for simple macros
+        example: '@every 1m'
         type: string
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'
@@ -52,7 +54,9 @@ definitions:
         $ref: '#/definitions/common.Metadata'
         type: object
       schedule_expression:
-        example: '* * * * *'
+        description: A schedule expression; can be any valid cron expression, with
+          some support for simple macros
+        example: '@every 1m'
         type: string
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'
@@ -90,7 +94,9 @@ definitions:
   recurring.TaskUpdate:
     properties:
       schedule_expression:
-        example: '* * * * *'
+        description: A schedule expression; can be any valid cron expression, with
+          some support for simple macros
+        example: '@every 1m'
         type: string
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'

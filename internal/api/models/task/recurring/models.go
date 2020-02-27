@@ -28,20 +28,23 @@ type TaskDefinition struct {
 // We assume that the ScheduleExpression is valid
 // *before* we persist it
 type NewTask struct {
-	ID                 recurring.Id                 `json:"id" binding:"required"`
-	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"* * * * *"`
+	ID recurring.Id `json:"id" binding:"required"`
+	// A schedule expression; can be any valid cron expression, with some support for simple macros
+	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
 	TaskDefinition     TaskDefinition               `json:"task_definition" binding:"required"`
 }
 
 // Update definition for an existing Task
 type TaskUpdate struct {
-	ScheduleExpression *recurring.ScheduleExpression `json:"schedule_expression,omitempty" binding:"scheduleExpression" example:"* * * * *"`
+	// A schedule expression; can be any valid cron expression, with some support for simple macros
+	ScheduleExpression *recurring.ScheduleExpression `json:"schedule_expression,omitempty" binding:"scheduleExpression" example:"@every 1m"`
 	TaskDefinition     *TaskDefinition               `json:"task_definition,omitempty"`
 }
 
 type Task struct {
-	ID                 recurring.Id                 `json:"id" binding:"required"`
-	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"* * * * *"`
+	ID recurring.Id `json:"id" binding:"required"`
+	// A schedule expression; can be any valid cron expression, with some support for simple macros
+	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
 	TaskDefinition     TaskDefinition               `json:"task_definition" binding:"required"`
 	LoadedAt           *time.Time                   `json:"loaded_at,omitempty"`
 	Metadata           common.Metadata              `json:"metadata" binding:"required"`
