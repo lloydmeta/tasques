@@ -64,6 +64,10 @@ tasques:
         scroll_ttl: 1m
       recurring_tasks:
         # How long to wait between sync runs; should be higher than leader lock check interval
+        #
+        # Note that setting this too long could affect operations: we query for updated recurring
+        # tasks, and by default, if an index is not queried in the last 30 seconds, it doesn't get
+        # refreshed on a per-second basis.
         sync_run_interval: 5s
         # How long to wait between sync enforcement runs; should be higher than sync interval
         enforce_sync_run_interval: 1m
