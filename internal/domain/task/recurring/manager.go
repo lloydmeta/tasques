@@ -63,18 +63,18 @@ func NewManager(scheduler Scheduler, service Service) Manager {
 // Returns a function that conditionally syncs Recurring Task changes from the data store,
 // ensuring tasks that are deleted are stopped, tasks that are created or updated are scheduled
 // properly
-func (m *Manager) RecurringSyncFunc() func(isLeader leader.Checker) error {
+func (m *Manager) RecurringSyncFunc() func(ctx context.Context, isLeader leader.Checker) error {
 	return m.recurringFunc("sync of unseen changes", m.syncNotLoaded)
 }
 
 // Returns a function that conditionally runs a full sync of Recurring Task changes from the data store
-func (m *Manager) RecurringSyncEnforceFunc() func(isLeader leader.Checker) error {
+func (m *Manager) RecurringSyncEnforceFunc() func(ctx context.Context, isLeader leader.Checker) error {
 	return m.recurringFunc("full sync check", m.enforceSync)
 }
 
 // Returns a sync-related function
-func (m *Manager) recurringFunc(description string, ifStillLeader func() error) func(leaderChecker leader.Checker) error {
-	return func(leaderChecker leader.Checker) error {
+func (m *Manager) recurringFunc(description string, ifStillLeader func(ctx context.Context) error) func(ctx context.Context, leaderChecker leader.Checker) error {
+	return func(ctx context.Context, leaderChecker leader.Checker) error {
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		previousLeaderState := m.leaderState
@@ -86,13 +86,13 @@ func (m *Manager) recurringFunc(description string, ifStillLeader func() error) 
 				Str("previous", previousLeaderState.String()).
 				Str("current", currentLeaderState.String()).
 				Msg("Newly acquired leader lock, initiating complete refresh of Recurring Tasks")
-			return m.completeReload()
+			return m.completeReload(ctx)
 		case previousLeaderState == LEADER && currentLeaderState == LEADER:
 			log.Debug().
 				Str("previous", previousLeaderState.String()).
 				Str("current", currentLeaderState.String()).
 				Msgf("Still has leader lock, initiating %s", description)
-			return ifStillLeader()
+			return ifStillLeader(ctx)
 		case previousLeaderState == LEADER && currentLeaderState == NOT_LEADER:
 			log.Info().
 				Str("previous", previousLeaderState.String()).
@@ -136,9 +136,7 @@ func (m *Manager) stopAll() {
 // Stops all recurring Tasks and removes them from the in-memory
 // map, then reads them from the backing store and schedules them
 // and loads them in memory
-func (m *Manager) completeReload() error {
-	ctx := context.Background()
-
+func (m *Manager) completeReload(ctx context.Context) error {
 	// Stop everything first
 	m.stopAll()
 
@@ -158,9 +156,7 @@ func (m *Manager) completeReload() error {
 // * Newly-deleted recurring Tasks are unscheduled and removed from the scheduled Tasks
 //   internal state
 // * Newly-updated + created Tasks are unscheduled, scheduled, updating state
-func (m *Manager) syncNotLoaded() error {
-	ctx := context.Background()
-
+func (m *Manager) syncNotLoaded(ctx context.Context) error {
 	notLoadeds, err := m.service.NotLoaded(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg(
@@ -195,10 +191,9 @@ func (m *Manager) syncNotLoaded() error {
 	return m.markAsLoadedAndUpdateScheduledTasksState(ctx, acked)
 }
 
-func (m *Manager) enforceSync() error {
+func (m *Manager) enforceSync(ctx context.Context) error {
 	log.Info().Msg("Checking if scheduled Recurring Tasks are in sync with data store.")
 
-	ctx := context.Background()
 	all, err := m.service.All(ctx)
 	if err != nil {
 		return err
@@ -250,7 +245,7 @@ func (m *Manager) enforceSync() error {
 
 	if needsResync {
 		log.Warn().Bool("needsResync", needsResync).Msg("Initiating complete reload")
-		return m.completeReload()
+		return m.completeReload(ctx)
 	} else {
 		log.Info().Msg("Scheduled Recurring Tasks are in sync with data store.")
 		return nil

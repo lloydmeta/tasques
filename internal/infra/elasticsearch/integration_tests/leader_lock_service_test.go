@@ -9,12 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	leader2 "github.com/lloydmeta/tasques/internal/domain/leader"
+	"github.com/lloydmeta/tasques/internal/infra/apm/tracing"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/leader"
 )
 
 func defaultCreateLock(lockName string) leader2.Lock {
-	return leader.NewLeaderLock(common.DocumentID(lockName), esClient, 250*time.Millisecond, 500*time.Millisecond)
+	return leader.NewLeaderLock(common.DocumentID(lockName), esClient, 250*time.Millisecond, 500*time.Millisecond, tracing.NoopTracer{})
 }
 
 func Test_EsLeaderLock_Create(t *testing.T) {

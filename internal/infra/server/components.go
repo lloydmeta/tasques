@@ -25,6 +25,8 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/leader"
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	recurring2 "github.com/lloydmeta/tasques/internal/domain/task/recurring"
+	"github.com/lloydmeta/tasques/internal/domain/tracing"
+	tracing2 "github.com/lloydmeta/tasques/internal/infra/apm/tracing"
 	recurring3 "github.com/lloydmeta/tasques/internal/infra/cron/task/recurring"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/index"
@@ -41,6 +43,7 @@ import (
 
 type Components struct {
 	Config                      *config.App
+	tracer                      tracing.Tracer
 	esClient                    *elasticsearch.Client
 	taskRoutesHandler           tasks.RoutesHandler
 	recurringTasksRoutesHandler recurring.RoutesHandler
@@ -53,6 +56,8 @@ type Components struct {
 
 func NewComponents(config *config.App) (*Components, error) {
 	esClient, err := common.NewClient(config.Elasticsearch)
+
+	tracer := tracing2.NewTracer()
 
 	if err != nil {
 		return nil, err
@@ -85,11 +90,12 @@ func NewComponents(config *config.App) (*Components, error) {
 		dynamicScheduler := recurring3.NewScheduler(tasksService)
 		recurringTasksManager := recurring2.NewManager(dynamicScheduler, recurringTasksService)
 
-		recurringRunnerLock := buildRecurringTasksLeaderLock(config.Recurring.LeaderLock, esClient)
-		recurringRunner := buildRecurringRunner(config.Recurring, recurringRunnerLock, tasksService, &recurringTasksManager)
+		recurringRunnerLock := buildRecurringTasksLeaderLock(config.Recurring.LeaderLock, esClient, tracer)
+		recurringRunner := buildRecurringRunner(config.Recurring, recurringRunnerLock, tasksService, &recurringTasksManager, tracer)
 
 		return &Components{
 			Config:                      config,
+			tracer:                      tracer,
 			esClient:                    esClient,
 			taskRoutesHandler:           tasksRoutesHandler,
 			recurringTasksRoutesHandler: recurringTasksRoutesHandler,
@@ -154,12 +160,13 @@ func (c *Components) Run() {
 
 }
 
-func buildRecurringTasksLeaderLock(conf config.LeaderLock, esClient *elasticsearch.Client) leader.Lock {
+func buildRecurringTasksLeaderLock(conf config.LeaderLock, esClient *elasticsearch.Client, tracer tracing.Tracer) leader.Lock {
 	return infraLeader.NewLeaderLock(
 		"recurring-tasks-leader",
 		esClient,
 		conf.CheckInterval,
 		conf.ReportLagTolerance,
+		tracer,
 	)
 }
 
@@ -168,6 +175,7 @@ func buildRecurringRunner(
 	leaderLock leader.Lock,
 	tasksService task.Service,
 	recurringTasksManager *recurring2.Manager,
+	tracer tracing.Tracer,
 ) leader.InternalRecurringFunctionRunner {
 	recurringFunctions := []leader.InternalRecurringFunction{
 		// This task is not *strictly* required, because we can always do some form of clever querying like
@@ -176,9 +184,9 @@ func buildRecurringRunner(
 		leader.NewInternalRecurringFunction(
 			"timed-out-task-runner",
 			conf.TimedOutTasksReaper.RunInterval,
-			func(isLeader leader.Checker) error {
+			func(ctx context.Context, isLeader leader.Checker) error {
 				if isLeader.IsLeader() {
-					return tasksService.ReapTimedOutTasks(context.Background(), conf.TimedOutTasksReaper.ScrollSize, conf.TimedOutTasksReaper.ScrollTtl)
+					return tasksService.ReapTimedOutTasks(ctx, conf.TimedOutTasksReaper.ScrollSize, conf.TimedOutTasksReaper.ScrollTtl)
 				} else {
 					log.Debug().Msg("Task reaper skipped because we don't have the lock.")
 					return nil
@@ -197,5 +205,5 @@ func buildRecurringRunner(
 		),
 	}
 
-	return leader.NewInternalRecurringFunctionRunner(recurringFunctions, leaderLock)
+	return leader.NewInternalRecurringFunctionRunner(recurringFunctions, tracer, leaderLock)
 }

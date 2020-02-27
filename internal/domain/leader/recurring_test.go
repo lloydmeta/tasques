@@ -1,11 +1,14 @@
 package leader
 
 import (
+	"context"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lloydmeta/tasques/internal/infra/apm/tracing"
 )
 
 func TestRecurringTaskRunner_Start(t *testing.T) {
@@ -43,7 +46,7 @@ func TestRecurringTaskRunner_Start(t *testing.T) {
 				NewInternalRecurringFunction(
 					"inc",
 					10*time.Millisecond,
-					func(checker Checker) error {
+					func(ctx context.Context, checker Checker) error {
 						if checker.IsLeader() {
 							tt.fields.incrementer.incr()
 						}
@@ -54,7 +57,7 @@ func TestRecurringTaskRunner_Start(t *testing.T) {
 			// Sanity check. Nothing should run if before Start() is called
 			assert.EqualValues(t, 0, tt.fields.incrementer.Value())
 
-			r := NewInternalRecurringFunctionRunner(tasks, tt.fields.leaderLock)
+			r := NewInternalRecurringFunctionRunner(tasks, tracing.NoopTracer{}, tt.fields.leaderLock)
 			r.Start()
 			if tt.shouldRun {
 				assert.Eventually(t, func() bool {

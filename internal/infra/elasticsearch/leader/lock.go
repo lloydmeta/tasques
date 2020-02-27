@@ -2,7 +2,6 @@ package leader
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/lloydmeta/tasques/internal/domain/leader"
+	"github.com/lloydmeta/tasques/internal/domain/tracing"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 )
 
@@ -71,7 +71,9 @@ type EsLock struct {
 	leaderReportLagTolerance time.Duration
 
 	stashedDoc *esLeaderInfo // could be empty
-	stateLock  sync.Mutex    // used only when we modify the state
+
+	tracer    tracing.Tracer
+	stateLock sync.Mutex // used only when we modify the state
 }
 
 // Ignore: this is for tests
@@ -87,7 +89,7 @@ func buildProcessId(id common.DocumentID) processId {
 // NewLeaderLock returns a new leader.Lock
 //
 // Generates a random process id for the returned instance.
-func NewLeaderLock(leaderLockDocId common.DocumentID, client *elasticsearch.Client, loopInterval time.Duration, leaderReportLagTolerance time.Duration) leader.Lock {
+func NewLeaderLock(leaderLockDocId common.DocumentID, client *elasticsearch.Client, loopInterval time.Duration, leaderReportLagTolerance time.Duration, tracer tracing.Tracer) leader.Lock {
 	return &EsLock{
 		leaderLockDockId: leaderLockDocId,
 		processId:        buildProcessId(leaderLockDocId),
@@ -100,6 +102,7 @@ func NewLeaderLock(leaderLockDocId common.DocumentID, client *elasticsearch.Clie
 		leaderReportLagTolerance: leaderReportLagTolerance,
 		stashedDoc:               nil,
 		stateLock:                sync.Mutex{},
+		tracer:                   tracer,
 	}
 }
 
@@ -121,11 +124,15 @@ func (e *EsLock) setState(newState state) {
 }
 
 func (e *EsLock) getLeaderDoc() (*esLeaderInfo, error) {
+	tx := e.tracer.BackgroundTx("leader-lock-getLeaderDoc")
+	defer tx.End()
+	ctx := tx.Context()
 	getReq := esapi.GetRequest{
+
 		Index:      string(IndexName),
 		DocumentID: string(e.leaderLockDockId),
 	}
-	rawResp, err := getReq.Do(context.Background(), e.client)
+	rawResp, err := getReq.Do(ctx, e.client)
 	if err != nil {
 		return nil, common.ElasticsearchErr{Underlying: err}
 	}
@@ -145,6 +152,10 @@ func (e *EsLock) getLeaderDoc() (*esLeaderInfo, error) {
 }
 
 func (e *EsLock) submitNameForLeader() (*esLeaderInfo, error) {
+	tx := e.tracer.BackgroundTx("leader-lock-submitNameForLeader")
+	defer tx.End()
+	ctx := tx.Context()
+
 	now := e.getUTC()
 	data := leaderData{
 		LeaderId: e.processId,
@@ -161,7 +172,7 @@ func (e *EsLock) submitNameForLeader() (*esLeaderInfo, error) {
 		Body:       bytes.NewReader(dataAsBytes),
 	}
 
-	rawResp, err := createReq.Do(context.Background(), e.client)
+	rawResp, err := createReq.Do(ctx, e.client)
 	if err != nil {
 		return nil, common.ElasticsearchErr{Underlying: err}
 	}
@@ -193,6 +204,10 @@ func (e *EsLock) submitNameForLeader() (*esLeaderInfo, error) {
 
 // Tries to update the doc in ES so that the current lock is the leader
 func (e *EsLock) jostleForLeader(primaryT primaryTerm, seqNo seqNum) (*esLeaderInfo, error) {
+	tx := e.tracer.BackgroundTx("leader-lock-getLeaderDoc")
+	defer tx.End()
+	ctx := tx.Context()
+
 	now := e.getUTC()
 	data := leaderData{
 		LeaderId: e.processId,
@@ -213,7 +228,7 @@ func (e *EsLock) jostleForLeader(primaryT primaryTerm, seqNo seqNum) (*esLeaderI
 		IfSeqNo:       esapi.IntPtr(int(seqNo)),
 	}
 
-	rawResp, err := updateReq.Do(context.Background(), e.client)
+	rawResp, err := updateReq.Do(ctx, e.client)
 	if err != nil {
 		return nil, common.ElasticsearchErr{Underlying: err}
 	}

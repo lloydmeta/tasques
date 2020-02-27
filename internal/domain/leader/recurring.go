@@ -1,10 +1,13 @@
 package leader
 
 import (
+	"context"
 	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/lloydmeta/tasques/internal/domain/tracing"
 )
 
 // InternalRecurringFunction defines a recurring task to run if we have the leader lock
@@ -13,28 +16,30 @@ type InternalRecurringFunction struct {
 	// How often to run it
 	interval time.Duration
 	// What to run
-	f func(isLeader Checker) error
+	f func(ctx context.Context, isLeader Checker) error
 }
 
 // NewInternalRecurringFunction returns a new recurring task (but doesn't run it)
 // Also assumes f is non-nil.
-func NewInternalRecurringFunction(name string, interval time.Duration, f func(isLeader Checker) error) InternalRecurringFunction {
+func NewInternalRecurringFunction(name string, interval time.Duration, f func(ctx context.Context, isLeader Checker) error) InternalRecurringFunction {
 	return InternalRecurringFunction{name: name, interval: interval, f: f}
 }
 
 // InternalRecurringFunctionRunner is a runner of InternalRecurringFunction
 type InternalRecurringFunctionRunner struct {
+	tracer     tracing.Tracer
 	functions  []InternalRecurringFunction
 	stopped    uint32
 	leaderLock Lock
 }
 
 // NewInternalRecurringFunctionRunner creates a new InternalRecurringFunctionRunner
-func NewInternalRecurringFunctionRunner(tasks []InternalRecurringFunction, leaderLock Lock) InternalRecurringFunctionRunner {
+func NewInternalRecurringFunctionRunner(tasks []InternalRecurringFunction, tracer tracing.Tracer, leaderLock Lock) InternalRecurringFunctionRunner {
 	return InternalRecurringFunctionRunner{
 		functions:  tasks,
 		stopped:    1,
 		leaderLock: leaderLock,
+		tracer:     tracer,
 	}
 }
 
@@ -45,10 +50,13 @@ func (r *InternalRecurringFunctionRunner) Start() {
 		go func(task InternalRecurringFunction, shouldRun func() bool, isLeader Checker) {
 			for shouldRun() {
 				startIterationTime := time.Now().UTC()
-				err := task.f(isLeader)
+				tx := r.tracer.BackgroundTx(task.name)
+				ctx := tx.Context()
+				err := task.f(ctx, isLeader)
 				if err != nil {
 					log.Error().Err(err).Msgf("Failed when running task [%s]", task.name)
 				}
+				tx.End()
 				waitTime := task.interval - time.Since(startIterationTime)
 				if waitTime > 0 {
 					time.Sleep(waitTime)
