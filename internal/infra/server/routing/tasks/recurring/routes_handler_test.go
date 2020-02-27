@@ -125,6 +125,18 @@ func Test_Update_InvalidSchedule(t *testing.T) {
 	assert.EqualValues(t, http.StatusBadRequest, resp.Code)
 }
 
+func Test_Update_NoSchedule(t *testing.T) {
+	router, _ := setupRouter()
+	noScheduleUpdate := recurring.TaskUpdate{
+		TaskDefinition: &recurring.TaskDefinition{
+			Queue: "q",
+			Kind:  "k",
+		},
+	}
+	resp := performRequest(router, http.MethodPut, "/recurring_tasques/hello", noScheduleUpdate, nil)
+	assert.EqualValues(t, http.StatusOK, resp.Code)
+}
+
 func Test_Get_Ok(t *testing.T) {
 	router, mockController := setupRouter()
 	resp := performRequest(router, http.MethodGet, "/recurring_tasques/hello", nil, nil)

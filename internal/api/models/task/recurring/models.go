@@ -37,7 +37,7 @@ type NewTask struct {
 // Update definition for an existing Task
 type TaskUpdate struct {
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
-	ScheduleExpression *recurring.ScheduleExpression `json:"schedule_expression,omitempty" binding:"scheduleExpression" example:"@every 1m"`
+	ScheduleExpression *recurring.ScheduleExpression `json:"schedule_expression,omitempty" binding:"omitempty,scheduleExpression" example:"@every 1m"`
 	TaskDefinition     *TaskDefinition               `json:"task_definition,omitempty"`
 }
 
