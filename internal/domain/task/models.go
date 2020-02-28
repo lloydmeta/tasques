@@ -61,6 +61,9 @@ type NewTask struct {
 	ProcessingTimeout ProcessingTimeout
 	Args              *Args
 	Context           *Context
+
+	// This is the id of the recurring Task that spawned this Task. Only populated if created by a Recurring Task
+	RecurringTaskId *RecurringTaskId
 }
 
 // When something was last put into the queue
@@ -84,6 +87,8 @@ type Task struct {
 	LastClaimed       *LastClaimed
 	LastEnqueuedAt    EnqueuedAt
 	Metadata          metadata.Metadata
+	// This is the id of the recurring Task that spawned this Task. Only populated if created by a Recurring Task
+	RecurringTaskId *RecurringTaskId
 }
 
 // RemainingAttempts returns the number of times this task can still run
@@ -367,3 +372,9 @@ func (s *State) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("invalid state: [%s]", string(b))
 	}
 }
+
+// A user-specifiable Recurring Task Id
+//
+// Here because Golang doesn't let me put it the recurring
+// package due to circular import...
+type RecurringTaskId string

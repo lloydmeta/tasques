@@ -4,8 +4,6 @@
 package task
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/lloydmeta/tasques/internal/api/models/common"
@@ -14,8 +12,8 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/worker"
 )
 
-type JsonObj = map[string]interface{}
-
+// Swag, the Swagger def parser has a bug that prevents us from directly using the one
+// stored in the common package
 type Duration time.Duration
 
 type NewTask struct {
@@ -77,19 +75,21 @@ type Task struct {
 	Kind              task.Kind           `json:"kind" binding:"required" example:"sayHello"`
 	State             task.State          `json:"state" binding:"required" swaggertype:"string" example:"queued"`
 	Priority          task.Priority       `json:"priority" binding:"required"`
-	ProcessingTimeout Duration            `json:"processing_timeout" binding:"required" swaggertype:"string" swaggertype:"string" example:"30m"`
+	ProcessingTimeout Duration            `json:"processing_timeout" binding:"required" swaggertype:"string" example:"30m"`
 	RunAt             time.Time           `json:"run_at" binding:"required" swaggertype:"string" format:"date-time"`
 	Args              *task.Args          `json:"args,omitempty" swaggertype:"object"`
 	Context           *task.Context       `json:"context,omitempty" swaggertype:"object"`
 	LastClaimed       *LastClaimed        `json:"last_claimed,omitempty"`
 	LastEnqueuedAt    time.Time           `json:"last_enqueued_at" binding:"required" swaggertype:"string" format:"date-time"`
 	Metadata          common.Metadata     `json:"metadata" binding:"required"`
+	// Only populated if this is a Task that was spawned/enqueued by a Recurring Task definition
+	RecurringTaskId *task.RecurringTaskId `json:"recurring_task_id,omitempty" swaggertype:"string"`
 }
 
-var timeZero time.Time
+var TimeZero time.Time
 
 // Converts an API model to the domain model
-func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time, defaulProcessingTimeout time.Duration) task.NewTask {
+func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time, defaultProcessingTimeout time.Duration) task.NewTask {
 	var domainRetryTimes task.RetryTimes
 	if t.RetryTimes != nil {
 		domainRetryTimes = *t.RetryTimes
@@ -103,8 +103,7 @@ func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time
 		domainPriority = task.Priority(0)
 	}
 	var domainRunAt task.RunAt
-	if t.RunAt != nil && *t.RunAt != timeZero {
-		fmt.Println("fuck")
+	if t.RunAt != nil && *t.RunAt != TimeZero {
 		domainRunAt = task.RunAt(*t.RunAt)
 	} else {
 		domainRunAt = task.RunAt(defaultRunAt)
@@ -113,7 +112,7 @@ func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time
 	if t.ProcessingTimeout != nil {
 		processingTimeout = task.ProcessingTimeout(*t.ProcessingTimeout)
 	} else {
-		processingTimeout = task.ProcessingTimeout(defaulProcessingTimeout)
+		processingTimeout = task.ProcessingTimeout(defaultProcessingTimeout)
 	}
 
 	return task.NewTask{
@@ -169,35 +168,15 @@ func FromDomainTask(dTask *task.Task) Task {
 		Context:           dTask.Context,
 		LastClaimed:       lastClaimed,
 		LastEnqueuedAt:    time.Time(dTask.LastEnqueuedAt),
-		Metadata: common.Metadata{
-			CreatedAt:  time.Time(dTask.Metadata.CreatedAt),
-			ModifiedAt: time.Time(dTask.Metadata.ModifiedAt),
-			Version: common.Version{
-				SeqNum:      uint64(dTask.Metadata.Version.SeqNum),
-				PrimaryTerm: uint64(dTask.Metadata.Version.PrimaryTerm),
-			},
-		},
+		Metadata:          common.FromDomainMetadata(&dTask.Metadata),
+		RecurringTaskId:   dTask.RecurringTaskId,
 	}
 }
 
 func (d *Duration) UnmarshalJSON(b []byte) (err error) {
-	if b[0] == '"' {
-		sd := string(b[1 : len(b)-1])
-		duration, parseErr := time.ParseDuration(sd)
-		if parseErr == nil {
-			*d = Duration(duration)
-		} else {
-			err = parseErr
-		}
-		return
-	}
-	var id int64
-	id, err = json.Number(string(b)).Int64()
-	if err != nil {
-		*d = Duration(time.Duration(id))
-	}
-	return
+	return (*common.Duration)(d).UnmarshalJSON(b)
 }
+
 func (d Duration) MarshalJSON() (b []byte, err error) {
-	return []byte(fmt.Sprintf(`"%s"`, time.Duration(d).String())), nil
+	return (common.Duration)(d).MarshalJSON()
 }

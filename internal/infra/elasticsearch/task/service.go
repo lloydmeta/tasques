@@ -54,10 +54,11 @@ func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Ta
 		Context:           (*jsonObjMap)(newTask.Context),
 		LastEnqueuedAt:    now,
 		LastClaimed:       nil,
-		Metadata: persistedMetadata{
+		Metadata: common.PersistedMetadata{
 			CreatedAt:  now,
 			ModifiedAt: now,
 		},
+		RecurringTaskId: (*string)(newTask.RecurringTaskId),
 	}
 
 	toPersistBytes, err := json.Marshal(toPersist)
@@ -86,10 +87,7 @@ func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Ta
 		}
 		taskId := taskId
 
-		domainTask := toPersist.toDomainTask(taskId, newTask.Queue, metadata.Version{
-			SeqNum:      metadata.SeqNum(response.SeqNum),
-			PrimaryTerm: metadata.PrimaryTerm(response.PrimaryTerm),
-		})
+		domainTask := toPersist.toDomainTask(taskId, newTask.Queue, response.Version())
 		return &domainTask, nil
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
@@ -239,13 +237,13 @@ func (e *EsService) ReapTimedOutTasks(ctx context.Context, scrollSize uint, scro
 
 // Scrolls through all tasks using a search body, taking care to close all response bodies and close scrolls
 func (e *EsService) scanTasks(ctx context.Context, searchBody jsonObjMap, scrollTtl time.Duration, doWithBatch func(tasks []task.Task) error) error {
-	log.Info().Msg("Beginning to scan tasks .. ")
+	log.Debug().Msg("Beginning to scan tasks .. ")
 	log.Debug().Interface("searchBody", searchBody).Msg("Scanning tasks")
 	tasksWithScrollId, err := e.initSearch(ctx, searchBody, scrollTtl)
 	if err != nil {
 		return err
 	}
-	timedOutTasks := tasksWithScrollId.Tasks
+	scannedTasks := tasksWithScrollId.Tasks
 	var scrollIds []string
 	scrollId := tasksWithScrollId.ScrollId
 	scrollIds = append(scrollIds, scrollId)
@@ -255,19 +253,19 @@ func (e *EsService) scanTasks(ctx context.Context, searchBody jsonObjMap, scroll
 		}
 	}()
 
-	for len(timedOutTasks) > 0 {
-		if err := doWithBatch(timedOutTasks); err != nil {
+	for len(scannedTasks) > 0 {
+		if err := doWithBatch(scannedTasks); err != nil {
 			return err
 		}
 		nextTasksWithScrollId, err := e.scroll(ctx, scrollId, scrollTtl)
 		if err != nil {
 			return err
 		}
-		timedOutTasks = nextTasksWithScrollId.Tasks
+		scannedTasks = nextTasksWithScrollId.Tasks
 		scrollId = nextTasksWithScrollId.ScrollId
 		scrollIds = append(scrollIds, nextTasksWithScrollId.ScrollId)
 	}
-	log.Info().Msg("Scanning tasks end ")
+	log.Debug().Msg("Scanning tasks end ")
 	return nil
 }
 
@@ -321,8 +319,6 @@ func processScrollResp(rawResp *esapi.Response) (*tasksWithScrollId, error) {
 			ScrollId: scrollResp.ScrollId,
 			Tasks:    tasks,
 		}, nil
-	case 404:
-		return nil, nil
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
 	}
@@ -389,8 +385,7 @@ func (e *EsService) getAndUpdate(ctx context.Context, queue queue.Name, taskId t
 		if err := json.NewDecoder(rawResp.Body).Decode(&resp); err != nil {
 			return nil, common.JsonSerdesErr{Underlying: []error{err}}
 		}
-		targetTask.Metadata.Version.SeqNum = metadata.SeqNum(resp.SeqNum)
-		targetTask.Metadata.Version.PrimaryTerm = metadata.PrimaryTerm(resp.PrimaryTerm)
+		targetTask.Metadata.Version = resp.Version()
 		return targetTask, nil
 	case respStatus == 409:
 		return nil, task.InvalidVersion{ID: taskId}
@@ -547,8 +542,8 @@ func (e *EsService) makeClaim(ctx context.Context, workerId worker.Id, aboutToCl
 	// Find how many we were able to claim, ignore the ones that had errors
 	for idx, attemptToClaim := range aboutToClaims {
 		// we are guaranteed to get the the responses in the same order that the bulk request was built
-		bulkResultInfoForClaim := bulkReqResponse.Items[idx].info()
-		if bulkResultInfoForClaim.isOk() {
+		bulkResultInfoForClaim := bulkReqResponse.Items[idx].Info()
+		if bulkResultInfoForClaim.IsOk() {
 			// Claimed! so grab the updated version and append to result list
 			attemptToClaim.Metadata.Version = metadata.Version{
 				SeqNum:      metadata.SeqNum(bulkResultInfoForClaim.SeqNum),
@@ -562,7 +557,7 @@ func (e *EsService) makeClaim(ctx context.Context, workerId worker.Id, aboutToCl
 	return claimed, nil
 }
 
-func (e *EsService) bulkUpdateTasks(ctx context.Context, tasks []task.Task) (*esBulkResponse, error) {
+func (e *EsService) bulkUpdateTasks(ctx context.Context, tasks []task.Task) (*common.EsBulkResponse, error) {
 	bulkReqBody, err := buildTasksBulkUpdateNdJsonBytes(tasks)
 	if err != nil {
 		return nil, err
@@ -579,7 +574,7 @@ func (e *EsService) bulkUpdateTasks(ctx context.Context, tasks []task.Task) (*es
 	if rawResp.IsError() {
 		return nil, common.UnexpectedEsStatusError(rawResp)
 	}
-	var response esBulkResponse
+	var response common.EsBulkResponse
 	if err := json.NewDecoder(rawResp.Body).Decode(&response); err != nil {
 		return nil, common.JsonSerdesErr{Underlying: []error{err}}
 	}
@@ -664,17 +659,18 @@ type persistedTaskData struct {
 	RetryTimes uint `json:"retry_times"`
 	// This doesn't map to the domain model 1:1 because storing _attempts_ instead of retires
 	// allows us to not need to adjust the counts for timeouts, and instead issue a simple update-by-query
-	RemainingAttempts uint                  `json:"remaining_attempts"`
-	Kind              string                `json:"kind"`
-	State             task.State            `json:"state"`
-	RunAt             time.Time             `json:"run_at"`
-	ProcessingTimeout time.Duration         `json:"processing_timeout"`
-	Priority          int                   `json:"priority"`
-	Args              *jsonObjMap           `json:"args,omitempty"`
-	Context           *jsonObjMap           `json:"context,omitempty"`
-	LastEnqueuedAt    time.Time             `json:"last_enqueued_at"`
-	LastClaimed       *persistedLastClaimed `json:"last_claimed,omitempty"`
-	Metadata          persistedMetadata     `json:"metadata"`
+	RemainingAttempts uint                     `json:"remaining_attempts"`
+	Kind              string                   `json:"kind"`
+	State             task.State               `json:"state"`
+	RunAt             time.Time                `json:"run_at"`
+	ProcessingTimeout time.Duration            `json:"processing_timeout"`
+	Priority          int                      `json:"priority"`
+	Args              *jsonObjMap              `json:"args,omitempty"`
+	Context           *jsonObjMap              `json:"context,omitempty"`
+	LastEnqueuedAt    time.Time                `json:"last_enqueued_at"`
+	LastClaimed       *persistedLastClaimed    `json:"last_claimed,omitempty"`
+	Metadata          common.PersistedMetadata `json:"metadata"`
+	RecurringTaskId   *string                  `json:"recurring_task_id,omitempty"`
 }
 
 type persistedReport struct {
@@ -688,11 +684,6 @@ type persistedLastClaimed struct {
 	TimesOutAt time.Time        `json:"times_out_at"`
 	LastReport *persistedReport `json:"last_report,omitempty"`
 	Result     *persistedResult `json:"result,omitempty"`
-}
-
-type persistedMetadata struct {
-	CreatedAt  time.Time `json:"created_at"`
-	ModifiedAt time.Time `json:"modified_at"`
 }
 
 type persistedResult struct {
@@ -748,6 +739,7 @@ func (pTask *persistedTaskData) toDomainTask(taskId task.Id, queue queue.Name, v
 			ModifiedAt: metadata.ModifiedAt(pTask.Metadata.ModifiedAt),
 			Version:    version,
 		},
+		RecurringTaskId: (*task.RecurringTaskId)(pTask.RecurringTaskId),
 	}
 }
 
@@ -801,10 +793,11 @@ func toPersistedTask(task *task.Task) persistedTaskData {
 		Context:           (*jsonObjMap)(task.Context),
 		LastEnqueuedAt:    time.Time(task.LastEnqueuedAt),
 		LastClaimed:       lastClaimed,
-		Metadata: persistedMetadata{
+		Metadata: common.PersistedMetadata{
 			CreatedAt:  time.Time(task.Metadata.CreatedAt),
 			ModifiedAt: time.Time(task.Metadata.ModifiedAt),
 		},
+		RecurringTaskId: (*string)(task.RecurringTaskId),
 	}
 }
 
@@ -902,45 +895,6 @@ type updateTaskBulkPairOpData struct {
 	IfSeqNo uint64 `json:"if_seq_no"`
 
 	IfPrimaryTerm uint64 `json:"if_primary_term"`
-}
-
-type esBulkResponse struct {
-	Took   uint                 `json:"took"`
-	Errors bool                 `json:"errors"`
-	Items  []esBulkResponseItem `json:"items"`
-}
-
-type esBulkResponseItem struct {
-	Index  *esBulkResponseItemInfo `json:"index"`
-	Delete *esBulkResponseItemInfo `json:"delete"`
-	Create *esBulkResponseItemInfo `json:"create"`
-	Update *esBulkResponseItemInfo `json:"update"`
-}
-
-func (i esBulkResponseItem) info() esBulkResponseItemInfo {
-	// It must be one of these.
-	if i.Index != nil {
-		return *i.Index
-	} else if i.Delete != nil {
-		return *i.Delete
-	} else if i.Create != nil {
-		return *i.Create
-	} else {
-		return *i.Update
-	}
-}
-
-type esBulkResponseItemInfo struct {
-	Index       string `json:"_index"`
-	ID          string `json:"_id"`
-	SeqNum      uint64 `json:"_seq_no"`
-	PrimaryTerm uint64 `json:"_primary_term"`
-	Result      string `json:"result"`
-	Status      uint   `json:"status"`
-}
-
-func (i *esBulkResponseItemInfo) isOk() bool {
-	return 200 <= i.Status && i.Status <= 299
 }
 
 type tasksWithScrollId struct {

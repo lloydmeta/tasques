@@ -4,8 +4,11 @@ package common
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v8/esapi"
+
+	"github.com/lloydmeta/tasques/internal/domain/metadata"
 )
 
 type IndexName string
@@ -54,10 +57,75 @@ type EsCreateResponse struct {
 	PrimaryTerm uint64 `json:"_primary_term"`
 }
 
+func (r *EsCreateResponse) Version() metadata.Version {
+	return metadata.Version{
+		SeqNum:      metadata.SeqNum(r.SeqNum),
+		PrimaryTerm: metadata.PrimaryTerm(r.PrimaryTerm),
+	}
+}
+
 type EsUpdateResponse struct {
 	Index       string `json:"_index"`
 	ID          string `json:"_id"`
 	SeqNum      uint64 `json:"_seq_no"`
 	PrimaryTerm uint64 `json:"_primary_term"`
 	Result      string `json:"result"`
+}
+
+func (r *EsUpdateResponse) Version() metadata.Version {
+	return metadata.Version{
+		SeqNum:      metadata.SeqNum(r.SeqNum),
+		PrimaryTerm: metadata.PrimaryTerm(r.PrimaryTerm),
+	}
+}
+
+type PersistedMetadata struct {
+	CreatedAt  time.Time `json:"created_at"`
+	ModifiedAt time.Time `json:"modified_at"`
+}
+
+type EsBulkResponse struct {
+	Took   uint                 `json:"took"`
+	Errors bool                 `json:"errors"`
+	Items  []EsBulkResponseItem `json:"items"`
+}
+
+type EsBulkResponseItemInfo struct {
+	Index       string `json:"_index"`
+	ID          string `json:"_id"`
+	SeqNum      uint64 `json:"_seq_no"`
+	PrimaryTerm uint64 `json:"_primary_term"`
+	Result      string `json:"result"`
+	Status      uint   `json:"status"`
+}
+
+type EsBulkResponseItem struct {
+	Index  *EsBulkResponseItemInfo `json:"index"`
+	Delete *EsBulkResponseItemInfo `json:"delete"`
+	Create *EsBulkResponseItemInfo `json:"create"`
+	Update *EsBulkResponseItemInfo `json:"update"`
+}
+
+func (i *EsBulkResponseItem) Info() EsBulkResponseItemInfo {
+	// It must be one of these.
+	if i.Index != nil {
+		return *i.Index
+	} else if i.Delete != nil {
+		return *i.Delete
+	} else if i.Create != nil {
+		return *i.Create
+	} else {
+		return *i.Update
+	}
+}
+
+func (i *EsBulkResponseItemInfo) IsOk() bool {
+	return 200 <= i.Status && i.Status <= 299
+}
+
+func (i *EsBulkResponseItemInfo) Version() metadata.Version {
+	return metadata.Version{
+		SeqNum:      metadata.SeqNum(i.SeqNum),
+		PrimaryTerm: metadata.PrimaryTerm(i.PrimaryTerm),
+	}
 }

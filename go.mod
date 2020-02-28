@@ -29,6 +29,7 @@ require (
 	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
+	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/lib/pq v1.3.0 // indirect
@@ -40,6 +41,7 @@ require (
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.0.10 // indirect
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.18.0
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect

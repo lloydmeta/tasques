@@ -20,7 +20,7 @@ import (
 	task2 "github.com/lloydmeta/tasques/internal/infra/elasticsearch/task"
 )
 
-func buildService() task.Service {
+func buildTasksService() task.Service {
 	return task2.NewService(
 		esClient,
 		config.TasksDefaults{
@@ -40,10 +40,12 @@ var ctx = context.Background()
 
 type JsonObj = map[string]interface{}
 
+var recurringId task.RecurringTaskId = "recurrrrr"
+
 func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
-	service := buildService()
+	service := buildTasksService()
 	now := time.Now().UTC()
-	setServiceClock(t, service, now)
+	setTasksServiceClock(t, service, now)
 	type args struct {
 		task *task.NewTask
 	}
@@ -97,6 +99,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 					Context: &task.Context{
 						"hallo": "welt",
 					},
+					RecurringTaskId: &recurringId,
 				},
 			},
 			wantedJson: JsonObj{
@@ -118,6 +121,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 					"created_at":  now.Format(time.RFC3339Nano),
 					"modified_at": now.Format(time.RFC3339Nano),
 				},
+				"recurring_task_id": (string)(recurringId),
 			},
 		},
 	}
@@ -157,7 +161,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 }
 
 func Test_esTaskService_Create(t *testing.T) {
-	service := buildService()
+	service := buildTasksService()
 	runAt := task.RunAt(time.Now().UTC())
 	type args struct {
 		task *task.NewTask
@@ -230,7 +234,7 @@ func Test_esTaskService_Create(t *testing.T) {
 }
 
 func Test_esTaskService_Get(t *testing.T) {
-	service := buildService()
+	service := buildTasksService()
 	runAt := task.RunAt(time.Now().UTC())
 
 	toCreate := task.NewTask{
@@ -300,7 +304,7 @@ func Test_esTaskService_Get(t *testing.T) {
 }
 
 func Test_esTaskService_Claim(t *testing.T) {
-	service := buildService()
+	service := buildTasksService()
 
 	blockFor := 3 * time.Second
 
@@ -397,7 +401,7 @@ func Test_esTaskService_Claim(t *testing.T) {
 }
 
 func Test_esTaskService_Claim_with_parallel_completing_claimers(t *testing.T) {
-	service := buildService()
+	service := buildTasksService()
 
 	blockFor := 3 * time.Second
 
@@ -570,7 +574,7 @@ func Test_esTaskService_ReportIn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var seeded []task.Task
-			service := buildService()
+			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
 				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
 				seeded = append(seeded, created...)
@@ -735,7 +739,7 @@ func Test_esTaskService_MarkDone(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var seeded []task.Task
-			service := buildService()
+			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
 				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
 				seeded = append(seeded, created...)
@@ -899,7 +903,7 @@ func Test_esTaskService_MarkFailed(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var seeded []task.Task
-			service := buildService()
+			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
 				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
 				seeded = append(seeded, created...)
@@ -1063,7 +1067,7 @@ func Test_esTaskService_UnClaim(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var seeded []task.Task
-			service := buildService()
+			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
 				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
 				seeded = append(seeded, created...)
@@ -1108,7 +1112,7 @@ func Test_esTaskService_UnClaim(t *testing.T) {
 }
 
 func Test_esTaskService_FailTimedOutTasks(t *testing.T) {
-	service := buildService()
+	service := buildTasksService()
 
 	queueToSeed := queue.Name("claimed-tasks-to-expire")
 	seededClaimedTasks := seedClaimedTasks(t, service, 100, queueToSeed)
@@ -1129,7 +1133,7 @@ func Test_esTaskService_FailTimedOutTasks(t *testing.T) {
 
 	// fast forward time on the time getter
 	futureTime := time.Now().Add(seededProcessingTimeout * 5)
-	setServiceClock(t, service, futureTime)
+	setTasksServiceClock(t, service, futureTime)
 
 	assert.Eventually(t, func() bool {
 		seededClaimedTasks := seededClaimedTasks
@@ -1189,7 +1193,7 @@ func seedClaimedTasks(t *testing.T, service task.Service, numberToSeed int, queu
 	return claimed
 }
 
-func setServiceClock(t *testing.T, service task.Service, frozenTime time.Time) {
+func setTasksServiceClock(t *testing.T, service task.Service, frozenTime time.Time) {
 	// fast forward time on the time getter
 	esService, ok := service.(*task2.EsService)
 	if !ok {
