@@ -161,7 +161,11 @@ func (e *EsService) Delete(ctx context.Context, id recurring.Id) (*recurring.Tas
 func (e *EsService) All(ctx context.Context) ([]recurring.Task, error) {
 	searchBody := buildUndeletedListSearchBody(e.scrollPageSize)
 	var found []recurring.Task
-	err := e.scanRecurringTasks(ctx, searchBody, e.scrollTtl, func(recurringTasks []recurring.Task) error {
+	err := e.refreshIndex(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = e.scanRecurringTasks(ctx, searchBody, e.scrollTtl, func(recurringTasks []recurring.Task) error {
 		found = append(found, recurringTasks...)
 		return nil
 	})
@@ -273,6 +277,26 @@ func (e *EsService) MarkLoaded(ctx context.Context, toMarks []recurring.Task) (*
 		}
 	}
 	return &multiResult, nil
+}
+
+func (e *EsService) refreshIndex(ctx context.Context) error {
+	req := esapi.IndicesRefreshRequest{
+		Index:             []string{TasquesRecurringTasksIndex},
+		AllowNoIndices:    esapi.BoolPtr(true),
+		IgnoreUnavailable: esapi.BoolPtr(true),
+	}
+	rawResp, err := req.Do(ctx, e.client)
+	if err != nil {
+		return common.ElasticsearchErr{Underlying: err}
+	}
+	defer rawResp.Body.Close()
+	respStatus := rawResp.StatusCode
+	switch {
+	case 200 <= respStatus && respStatus <= 299:
+		return nil
+	default:
+		return common.UnexpectedEsStatusError(rawResp)
+	}
 }
 
 // This is the main method that should be used for listing and scrolling through a potentially large collection of

@@ -25,10 +25,12 @@ type Service interface {
 
 	// Loads returns all persisted RecurringTasks that have not been deleted
 	//
-	// Sorted by id
+	// Sorted by id and always reflects the realtime state of the data.
 	All(ctx context.Context) ([]Task, error)
 
 	// NotLoaded returns not-loaded (seen by recurring tasks manager) RecurringTasks.
+	//
+	// Note that the data returned may be not be realtime.
 	//
 	// This is used to find tasks that have been modified but not loaded.
 	NotLoaded(ctx context.Context) ([]Task, error)

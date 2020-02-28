@@ -78,13 +78,12 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 func (i *schedulerImpl) Unschedule(taskId recurring.Id) bool {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	if log.Info().Enabled() {
-		log.Info().
-			Str("id", string(taskId)).
-			Msg("Un-scheduling recurring Task from Cron")
-	}
-
 	if entryId, ok := i.idsToEntryIds[taskId]; ok {
+		if log.Info().Enabled() {
+			log.Info().
+				Str("id", string(taskId)).
+				Msg("Unscheduling recurring Task from Cron")
+		}
 		i.cron.Remove(entryId)
 		delete(i.idsToEntryIds, taskId)
 		return true

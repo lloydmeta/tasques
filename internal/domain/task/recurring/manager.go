@@ -179,7 +179,7 @@ func (m *Manager) syncNotLoaded(ctx context.Context) error {
 		m.unscheduleAndRemoveFromScheduledTasksState(deleted)
 	}
 
-	var scheduled []Task
+	scheduled := make([]Task, 0, len(newOrUpdatedTasks))
 	// handle new and updateds by unscheduling if present, then scheduling
 	for _, updated := range newOrUpdatedTasks {
 		m.unscheduleAndRemoveFromScheduledTasksState(updated)
@@ -194,58 +194,40 @@ func (m *Manager) syncNotLoaded(ctx context.Context) error {
 func (m *Manager) enforceSync(ctx context.Context) error {
 	log.Info().Msg("Checking if scheduled Recurring Tasks are in sync with data store.")
 
-	all, err := m.service.All(ctx)
+	checkResults, err := m.checkSync(ctx)
 	if err != nil {
 		return err
 	}
 
-	var notInDataStore []Task
-	var notInMemory []Task
-	var versionMismatch []Task
+	if needsResync := checkResults.needsResync(); needsResync {
+		log.Warn().Bool("needsResync", needsResync).Msg("Initiating optimistic reload of just the things that are out of sync.")
 
-	// check if what we have in the data store is different from in memory
-	idsFromDataStore := make(map[Id]void, len(all))
-	for _, fromDataStore := range all {
-		idsFromDataStore[fromDataStore.ID] = member
-		if inMemory, present := m.scheduledTasks[fromDataStore.ID]; !present {
-			notInMemory = append(notInMemory, fromDataStore)
+		// unschedule things that are not in the data store
+		for _, deleted := range checkResults.notInDataStore {
+			m.unscheduleAndRemoveFromScheduledTasksState(deleted)
+		}
+
+		acked := make([]Task, 0, len(checkResults.notInMemory)+len(checkResults.versionMismatch))
+		for _, t := range append(checkResults.notInMemory, checkResults.versionMismatch...) {
+			m.unscheduleAndRemoveFromScheduledTasksState(t)
+			m.scheduleAndAddToList(t, &acked)
+		}
+		if err := m.markAsLoadedAndUpdateScheduledTasksState(ctx, acked); err != nil {
+			return err
+		}
+
+		// do another check
+		postOptimisticCheckSyncResults, err := m.checkSync(ctx)
+		if err != nil {
+			return err
+		}
+		if needsResync := postOptimisticCheckSyncResults.needsResync(); needsResync {
+			log.Warn().Bool("needsResync", needsResync).Msg("Initiating *FULL* reload because optimistic reload was not enough...")
+			return m.completeReload(ctx)
 		} else {
-			if inMemory.Metadata.Version != fromDataStore.Metadata.Version {
-				versionMismatch = append(versionMismatch, fromDataStore)
-			}
+			log.Info().Bool("needsResync", needsResync).Msg("Sweet. Optimistic reload was enough.")
+			return nil
 		}
-	}
-
-	// check if we have things in memory that are not in the data store
-	for fromInMemoryId, fromInMemoryTask := range m.scheduledTasks {
-		if _, present := idsFromDataStore[fromInMemoryId]; !present {
-			notInDataStore = append(notInDataStore, fromInMemoryTask)
-		}
-	}
-
-	needsResync := false
-	if len(notInDataStore) != 0 {
-		log.Warn().
-			Int("count", len(notInDataStore)).
-			Msg("Detected Tasks that are in memory, but not persisted")
-		needsResync = true
-	}
-	if len(notInMemory) != 0 {
-		log.Warn().
-			Int("count", len(notInMemory)).
-			Msg("Detected Tasks that are persisted, but not loaded in memory")
-		needsResync = true
-	}
-	if len(versionMismatch) != 0 {
-		log.Warn().
-			Int("count", len(versionMismatch)).
-			Msg("Detected Tasks that are in memory, but have version mismatches vs what is persisted")
-		needsResync = true
-	}
-
-	if needsResync {
-		log.Warn().Bool("needsResync", needsResync).Msg("Initiating complete reload")
-		return m.completeReload(ctx)
 	} else {
 		log.Info().Msg("Scheduled Recurring Tasks are in sync with data store.")
 		return nil
@@ -341,4 +323,81 @@ func (m *Manager) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, 
 		}
 	}
 	return nil
+}
+
+func (m *Manager) checkSync(ctx context.Context) (*syncCheckResults, error) {
+	all, err := m.service.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	results := syncCheckResults{}
+	// check if what we have in the data store is different from in memory
+	idsFromDataStore := make(map[Id]void, len(all))
+	for _, fromDataStore := range all {
+		idsFromDataStore[fromDataStore.ID] = member
+		if inMemory, present := m.scheduledTasks[fromDataStore.ID]; !present {
+			results.addToNotInMemory(fromDataStore)
+		} else {
+			if inMemory.Metadata.Version != fromDataStore.Metadata.Version {
+				results.addToVersionMismatch(fromDataStore)
+			}
+		}
+	}
+
+	// check if we have things in memory that are not in the data store
+	for fromInMemoryId, fromInMemoryTask := range m.scheduledTasks {
+		if _, present := idsFromDataStore[fromInMemoryId]; !present {
+			results.addToNotInDataStore(fromInMemoryTask)
+		}
+	}
+
+	return &results, nil
+}
+
+type syncCheckResults struct {
+	// Tasks that are in memory but absent from the data store
+	notInDataStore []Task
+	// Tasks that are from and present in the data store but not in memory
+	notInMemory []Task
+	// Tasks that are from and present in the data store but have a different version than the one in memory
+	versionMismatch []Task
+}
+
+func (s *syncCheckResults) addToNotInDataStore(task Task) {
+	s.notInDataStore = append(s.notInDataStore, task)
+}
+
+func (s *syncCheckResults) addToNotInMemory(task Task) {
+	s.notInMemory = append(s.notInMemory, task)
+}
+
+func (s *syncCheckResults) addToVersionMismatch(task Task) {
+	s.versionMismatch = append(s.versionMismatch, task)
+}
+
+// Returns true if things are out of sync
+//
+// Yes, we're printing in a function that is used as a boolean, but in both usages of this, we want it to and
+// this is an internal method so 🤷🏻‍♂️
+func (s *syncCheckResults) needsResync() bool {
+	needsResync := false
+	if len(s.notInDataStore) != 0 {
+		log.Warn().
+			Int("count", len(s.notInDataStore)).
+			Msg("Detected Tasks that are in memory, but not persisted")
+		needsResync = true
+	}
+	if len(s.notInMemory) != 0 {
+		log.Warn().
+			Int("count", len(s.notInMemory)).
+			Msg("Detected Tasks that are persisted, but not loaded in memory")
+		needsResync = true
+	}
+	if len(s.versionMismatch) != 0 {
+		log.Warn().
+			Int("count", len(s.versionMismatch)).
+			Msg("Detected Tasks that are in memory, but have version mismatches vs what is persisted")
+		needsResync = true
+	}
+	return needsResync
 }
