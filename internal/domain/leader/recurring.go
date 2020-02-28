@@ -25,8 +25,20 @@ func NewInternalRecurringFunction(name string, interval time.Duration, f func(ct
 	return InternalRecurringFunction{name: name, interval: interval, f: f}
 }
 
-// InternalRecurringFunctionRunner is a runner of InternalRecurringFunction
-type InternalRecurringFunctionRunner struct {
+// InternalRecurringFunctionRunner is a runner of InternalRecurringFunctions.
+//
+// It is intended to be the centralised place where static, cyclical *internal* background jobs
+// are run inside the app.
+type InternalRecurringFunctionRunner interface {
+
+	// Start begins the InternalRecurringFunctionRunner loop
+	Start()
+
+	// Stop stops the InternalRecurringFunctionRunner loop
+	Stop()
+}
+
+type impl struct {
 	tracer     tracing.Tracer
 	functions  []InternalRecurringFunction
 	stopped    uint32
@@ -35,7 +47,7 @@ type InternalRecurringFunctionRunner struct {
 
 // NewInternalRecurringFunctionRunner creates a new InternalRecurringFunctionRunner
 func NewInternalRecurringFunctionRunner(tasks []InternalRecurringFunction, tracer tracing.Tracer, leaderLock Lock) InternalRecurringFunctionRunner {
-	return InternalRecurringFunctionRunner{
+	return &impl{
 		functions:  tasks,
 		stopped:    1,
 		leaderLock: leaderLock,
@@ -44,7 +56,7 @@ func NewInternalRecurringFunctionRunner(tasks []InternalRecurringFunction, trace
 }
 
 // Start begins the InternalRecurringFunctionRunner loop
-func (r *InternalRecurringFunctionRunner) Start() {
+func (r *impl) Start() {
 	atomic.StoreUint32(&r.stopped, 0)
 	for _, t := range r.functions {
 		go func(task InternalRecurringFunction, shouldRun func() bool, isLeader Checker) {
@@ -68,11 +80,11 @@ func (r *InternalRecurringFunctionRunner) Start() {
 }
 
 // Stop stops the InternalRecurringFunctionRunner loop
-func (r *InternalRecurringFunctionRunner) Stop() {
+func (r *impl) Stop() {
 	log.Info().Msg("Stopping recurring functions")
 	atomic.StoreUint32(&r.stopped, 1)
 }
 
-func (r *InternalRecurringFunctionRunner) shouldRun() bool {
+func (r *impl) shouldRun() bool {
 	return atomic.LoadUint32(&r.stopped) == 0
 }

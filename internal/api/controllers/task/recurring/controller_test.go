@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	apiRecurring "github.com/lloydmeta/tasques/internal/api/models/task/recurring"
 	"github.com/lloydmeta/tasques/internal/config"
-	"github.com/lloydmeta/tasques/internal/domain/metadata"
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
 )
 
@@ -26,7 +24,7 @@ func TestNew(t *testing.T) {
 		{
 			name: "should not panic",
 			args: args{
-				recurringTasksService: &mockRecurringTasksService{},
+				recurringTasksService: &recurring.MockRecurringTasksService{},
 			},
 		},
 	}
@@ -39,7 +37,7 @@ func TestNew(t *testing.T) {
 
 func Test_impl_Create(t *testing.T) {
 	type fields struct {
-		recurringTasksService *mockRecurringTasksService
+		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
 		task *apiRecurring.NewTask
@@ -54,8 +52,8 @@ func Test_impl_Create(t *testing.T) {
 		{
 			name: "create results in already exists",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{
-					createOverride: func() (task *recurring.Task, err error) {
+				recurringTasksService: &recurring.MockRecurringTasksService{
+					CreateOverride: func() (task *recurring.Task, err error) {
 						return nil, recurring.AlreadyExists{ID: "i"}
 					},
 				},
@@ -73,7 +71,7 @@ func Test_impl_Create(t *testing.T) {
 		{
 			name: "create successful",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{},
+				recurringTasksService: &recurring.MockRecurringTasksService{},
 			},
 			args: args{
 				task: &apiRecurring.NewTask{
@@ -93,7 +91,7 @@ func Test_impl_Create(t *testing.T) {
 				tasksConfig:           cfg,
 			}
 			got, err := c.Create(ctx, tt.args.task)
-			assert.EqualValues(t, 1, tt.fields.recurringTasksService.createCalled)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.CreateCalled)
 			if err != nil && !tt.wantErr {
 				t.Error(err)
 			} else {
@@ -105,7 +103,7 @@ func Test_impl_Create(t *testing.T) {
 
 func Test_impl_Update(t *testing.T) {
 	type fields struct {
-		recurringTasksService *mockRecurringTasksService
+		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
 		id   recurring.Id
@@ -121,8 +119,8 @@ func Test_impl_Update(t *testing.T) {
 		{
 			name: "not found error",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{
-					updateOverride: func() (task *recurring.Task, err error) {
+				recurringTasksService: &recurring.MockRecurringTasksService{
+					UpdateOverride: func() (task *recurring.Task, err error) {
 						return nil, recurring.NotFound{ID: "m"}
 					},
 				},
@@ -137,8 +135,8 @@ func Test_impl_Update(t *testing.T) {
 		{
 			name: "invalid version error",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{
-					updateOverride: func() (task *recurring.Task, err error) {
+				recurringTasksService: &recurring.MockRecurringTasksService{
+					UpdateOverride: func() (task *recurring.Task, err error) {
 						return nil, recurring.InvalidVersion{ID: "m"}
 					},
 				},
@@ -152,7 +150,7 @@ func Test_impl_Update(t *testing.T) {
 		}, {
 			name: "successful, with filled in top-level fields",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{},
+				recurringTasksService: &recurring.MockRecurringTasksService{},
 			},
 			args: args{
 				id: "asdfasf",
@@ -170,7 +168,7 @@ func Test_impl_Update(t *testing.T) {
 		{
 			name: "successful, with empty fields",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{},
+				recurringTasksService: &recurring.MockRecurringTasksService{},
 			},
 			args: args{
 				id:   "asdfasf",
@@ -187,7 +185,7 @@ func Test_impl_Update(t *testing.T) {
 				tasksConfig:           cfg,
 			}
 			got, err := c.Update(ctx, tt.args.id, tt.args.task)
-			assert.EqualValues(t, 1, tt.fields.recurringTasksService.updateCalled)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.UpdateCalled)
 			if err != nil && !tt.wantErr {
 				t.Error(err)
 			} else {
@@ -199,7 +197,7 @@ func Test_impl_Update(t *testing.T) {
 
 func Test_impl_Get(t *testing.T) {
 	type fields struct {
-		recurringTasksService *mockRecurringTasksService
+		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
 		id recurring.Id
@@ -214,8 +212,8 @@ func Test_impl_Get(t *testing.T) {
 		{
 			name: "not found error",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{
-					getOverride: func() (task *recurring.Task, err error) {
+				recurringTasksService: &recurring.MockRecurringTasksService{
+					GetOverride: func() (task *recurring.Task, err error) {
 						return nil, recurring.NotFound{ID: "m"}
 					},
 				},
@@ -229,7 +227,7 @@ func Test_impl_Get(t *testing.T) {
 		{
 			name: "successful",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{},
+				recurringTasksService: &recurring.MockRecurringTasksService{},
 			},
 			args: args{
 				id: "asdfasf",
@@ -245,7 +243,7 @@ func Test_impl_Get(t *testing.T) {
 				tasksConfig:           cfg,
 			}
 			got, err := c.Get(ctx, tt.args.id)
-			assert.EqualValues(t, 1, tt.fields.recurringTasksService.getCalled)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.GetCalled)
 			if err != nil && !tt.wantErr {
 				t.Error(err)
 			} else {
@@ -257,7 +255,7 @@ func Test_impl_Get(t *testing.T) {
 
 func Test_impl_Delete(t *testing.T) {
 	type fields struct {
-		recurringTasksService *mockRecurringTasksService
+		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
 		id recurring.Id
@@ -272,8 +270,8 @@ func Test_impl_Delete(t *testing.T) {
 		{
 			name: "not found error",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{
-					deleteOverride: func() (task *recurring.Task, err error) {
+				recurringTasksService: &recurring.MockRecurringTasksService{
+					DeleteOverride: func() (task *recurring.Task, err error) {
 						return nil, recurring.NotFound{ID: "m"}
 					},
 				},
@@ -287,8 +285,8 @@ func Test_impl_Delete(t *testing.T) {
 		{
 			name: "invalid version error",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{
-					deleteOverride: func() (task *recurring.Task, err error) {
+				recurringTasksService: &recurring.MockRecurringTasksService{
+					DeleteOverride: func() (task *recurring.Task, err error) {
 						return nil, recurring.InvalidVersion{ID: "m"}
 					},
 				},
@@ -302,7 +300,7 @@ func Test_impl_Delete(t *testing.T) {
 		{
 			name: "successful",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{},
+				recurringTasksService: &recurring.MockRecurringTasksService{},
 			},
 			args: args{
 				id: "asdfasf",
@@ -318,7 +316,7 @@ func Test_impl_Delete(t *testing.T) {
 				tasksConfig:           cfg,
 			}
 			got, err := c.Delete(ctx, tt.args.id)
-			assert.EqualValues(t, 1, tt.fields.recurringTasksService.deleteCalled)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.DeleteCalled)
 			if err != nil && !tt.wantErr {
 				t.Error(err)
 			} else {
@@ -330,7 +328,7 @@ func Test_impl_Delete(t *testing.T) {
 
 func Test_impl_List(t *testing.T) {
 	type fields struct {
-		recurringTasksService *mockRecurringTasksService
+		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
 		id recurring.Id
@@ -345,8 +343,8 @@ func Test_impl_List(t *testing.T) {
 		{
 			name: "bad data error",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{
-					allOverride: func() (task []recurring.Task, err error) {
+				recurringTasksService: &recurring.MockRecurringTasksService{
+					AllOverride: func() (task []recurring.Task, err error) {
 						return nil, recurring.InvalidPersistedData{}
 					},
 				},
@@ -360,7 +358,7 @@ func Test_impl_List(t *testing.T) {
 		{
 			name: "successful",
 			fields: fields{
-				recurringTasksService: &mockRecurringTasksService{},
+				recurringTasksService: &recurring.MockRecurringTasksService{},
 			},
 			args: args{
 				id: "asdfasf",
@@ -376,7 +374,7 @@ func Test_impl_List(t *testing.T) {
 				tasksConfig:           cfg,
 			}
 			got, err := c.List(ctx)
-			assert.EqualValues(t, 1, tt.fields.recurringTasksService.allCalled)
+			assert.EqualValues(t, 1, tt.fields.recurringTasksService.AllCalled)
 			if err != nil && !tt.wantErr {
 				t.Error(err)
 			} else {
@@ -439,95 +437,6 @@ func Test_handleErr(t *testing.T) {
 	}
 }
 
-type mockRecurringTasksService struct {
-	createCalled   uint
-	createOverride func() (*recurring.Task, error)
-	getCalled      uint
-	getOverride    func() (*recurring.Task, error)
-	updateCalled   uint
-	updateOverride func() (*recurring.Task, error)
-	deleteCalled   uint
-	deleteOverride func() (*recurring.Task, error)
-	allCalled      uint
-	allOverride    func() ([]recurring.Task, error)
-}
-
-var now = time.Now().UTC()
-
-var mockDomainRecurringTask = recurring.Task{
-	ID:                 "mock",
-	ScheduleExpression: "* * * * *",
-	TaskDefinition: recurring.TaskDefinition{
-		Queue: "q",
-		Kind:  "k",
-	},
-	IsDeleted: false,
-	LoadedAt:  nil,
-	Metadata: metadata.Metadata{
-		CreatedAt:  metadata.CreatedAt(now),
-		ModifiedAt: metadata.ModifiedAt(now),
-		Version: metadata.Version{
-			SeqNum:      0,
-			PrimaryTerm: 1,
-		},
-	},
-}
-var mockApiRecurringTask = apiRecurring.FromDomainTask(&mockDomainRecurringTask)
-
 var ctx = context.Background()
 var cfg = config.TasksDefaults{}
-
-func (m *mockRecurringTasksService) Create(ctx context.Context, task *recurring.NewTask) (*recurring.Task, error) {
-	m.createCalled++
-	if m.createOverride != nil {
-		return m.createOverride()
-	} else {
-		return &mockDomainRecurringTask, nil
-	}
-}
-
-func (m *mockRecurringTasksService) Get(ctx context.Context, id recurring.Id, includeSoftDeleted bool) (*recurring.Task, error) {
-	m.getCalled++
-	if m.getOverride != nil {
-		return m.getOverride()
-	} else {
-		return &mockDomainRecurringTask, nil
-	}
-}
-
-func (m *mockRecurringTasksService) Delete(ctx context.Context, id recurring.Id) (*recurring.Task, error) {
-	m.deleteCalled++
-	if m.deleteOverride != nil {
-		return m.deleteOverride()
-	} else {
-		return &mockDomainRecurringTask, nil
-	}
-}
-
-func (m *mockRecurringTasksService) All(ctx context.Context) ([]recurring.Task, error) {
-	m.allCalled++
-	if m.allOverride != nil {
-		return m.allOverride()
-	} else {
-		return []recurring.Task{mockDomainRecurringTask}, nil
-	}
-}
-
-func (m *mockRecurringTasksService) Update(ctx context.Context, update *recurring.Task) (*recurring.Task, error) {
-	m.updateCalled++
-	if m.updateOverride != nil {
-		return m.updateOverride()
-	} else {
-		return &mockDomainRecurringTask, nil
-	}
-}
-
-// not exposed
-
-func (m *mockRecurringTasksService) MarkLoaded(ctx context.Context, toMarks []recurring.Task) (*recurring.MultiUpdateResult, error) {
-	panic("implement me")
-}
-
-func (m *mockRecurringTasksService) NotLoaded(ctx context.Context) ([]recurring.Task, error) {
-	panic("implement me")
-}
+var mockApiRecurringTask = apiRecurring.FromDomainTask(&recurring.MockDomainRecurringTask)

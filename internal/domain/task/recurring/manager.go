@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -31,49 +30,55 @@ var statesToString = map[state]string{
 	LEADER:     "LEADER",
 }
 
-// TODO tests
 // Manager is in charge of reading recurring Tasks and scheduling them
 // to be run, keeping things synced and updated on calls to its methods.
-type Manager struct {
+//
+// It exposes methods that are called by the InternalRecurringFunctionRunner
+// at configured intervals.
+type Manager interface {
+	// Returns a function that conditionally syncs Recurring Task changes from the data store,
+	// ensuring tasks that are deleted are stopped, tasks that are created or updated are scheduled
+	// properly
+	RecurringSyncFunc() func(ctx context.Context, isLeader leader.Checker) error
+
+	// Returns a function that conditionally runs a full sync of Recurring Task changes from the data store
+	RecurringSyncEnforceFunc() func(ctx context.Context, isLeader leader.Checker) error
+}
+
+// TODO tests
+type impl struct {
 	scheduler Scheduler
 	service   Service
 
+	// Internal state
 	scheduledTasks map[Id]Task
+	leaderState    state
 
-	getUTC func() time.Time
-
-	leaderState state
-	mu          sync.Mutex
+	// Used to ensure sanity
+	mu sync.Mutex
 }
 
 // Returns a new recurring Tasks Manager
 func NewManager(scheduler Scheduler, service Service) Manager {
-	return Manager{
+	return &impl{
 		scheduler:      scheduler,
 		service:        service,
 		scheduledTasks: make(map[Id]Task),
-		getUTC: func() time.Time {
-			return time.Now().UTC()
-		},
-		leaderState: NOT_LEADER,
-		mu:          sync.Mutex{},
+		leaderState:    NOT_LEADER,
+		mu:             sync.Mutex{},
 	}
 }
 
-// Returns a function that conditionally syncs Recurring Task changes from the data store,
-// ensuring tasks that are deleted are stopped, tasks that are created or updated are scheduled
-// properly
-func (m *Manager) RecurringSyncFunc() func(ctx context.Context, isLeader leader.Checker) error {
+func (m *impl) RecurringSyncFunc() func(ctx context.Context, isLeader leader.Checker) error {
 	return m.recurringFunc("sync of unseen changes", m.syncNotLoaded)
 }
 
-// Returns a function that conditionally runs a full sync of Recurring Task changes from the data store
-func (m *Manager) RecurringSyncEnforceFunc() func(ctx context.Context, isLeader leader.Checker) error {
+func (m *impl) RecurringSyncEnforceFunc() func(ctx context.Context, isLeader leader.Checker) error {
 	return m.recurringFunc("full sync check", m.enforceSync)
 }
 
 // Returns a sync-related function
-func (m *Manager) recurringFunc(description string, ifStillLeader func(ctx context.Context) error) func(ctx context.Context, leaderChecker leader.Checker) error {
+func (m *impl) recurringFunc(description string, ifStillLeader func(ctx context.Context) error) func(ctx context.Context, leaderChecker leader.Checker) error {
 	return func(ctx context.Context, leaderChecker leader.Checker) error {
 		m.mu.Lock()
 		defer m.mu.Unlock()
@@ -127,7 +132,7 @@ func leaderState(leaderChecker leader.Checker) state {
 // Stops all recurring Tasks and removes them from the in-memory
 // map
 // stops all scheduled tasks and removes them from the in-memory lookup
-func (m *Manager) stopAll() {
+func (m *impl) stopAll() {
 	for _, t := range m.scheduledTasks {
 		m.unscheduleAndRemoveFromScheduledTasksState(t)
 	}
@@ -136,7 +141,7 @@ func (m *Manager) stopAll() {
 // Stops all recurring Tasks and removes them from the in-memory
 // map, then reads them from the backing store and schedules them
 // and loads them in memory
-func (m *Manager) completeReload(ctx context.Context) error {
+func (m *impl) completeReload(ctx context.Context) error {
 	// Stop everything first
 	m.stopAll()
 
@@ -156,7 +161,7 @@ func (m *Manager) completeReload(ctx context.Context) error {
 // * Newly-deleted recurring Tasks are unscheduled and removed from the scheduled Tasks
 //   internal state
 // * Newly-updated + created Tasks are unscheduled, scheduled, updating state
-func (m *Manager) syncNotLoaded(ctx context.Context) error {
+func (m *impl) syncNotLoaded(ctx context.Context) error {
 	notLoadeds, err := m.service.NotLoaded(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg(
@@ -191,7 +196,7 @@ func (m *Manager) syncNotLoaded(ctx context.Context) error {
 	return m.markAsLoadedAndUpdateScheduledTasksState(ctx, acked)
 }
 
-func (m *Manager) enforceSync(ctx context.Context) error {
+func (m *impl) enforceSync(ctx context.Context) error {
 	log.Info().Msg("Checking if scheduled Recurring Tasks are in sync with data store.")
 
 	checkResults, err := m.checkSync(ctx)
@@ -242,7 +247,7 @@ func (m *Manager) enforceSync(ctx context.Context) error {
 //
 // Note that this *does not* update the internal scheduled Tasks map because we only
 // want to update it _after_ we mark it as loaded in ES and have updated metadata version
-func (m *Manager) scheduleAndAddToList(t Task, loaded *[]Task) {
+func (m *impl) scheduleAndAddToList(t Task, loaded *[]Task) {
 	err := m.scheduler.Schedule(t)
 	if err != nil {
 		log.Error().
@@ -257,7 +262,7 @@ func (m *Manager) scheduleAndAddToList(t Task, loaded *[]Task) {
 
 // Schedules a Task to be inserted at its specified interval
 // _and_ removes it from the internal scheduled Tasks map
-func (m *Manager) unscheduleAndRemoveFromScheduledTasksState(t Task) {
+func (m *impl) unscheduleAndRemoveFromScheduledTasksState(t Task) {
 	success := m.scheduler.Unschedule(t.ID)
 	if !success {
 		if log.Debug().Enabled() {
@@ -270,7 +275,7 @@ func (m *Manager) unscheduleAndRemoveFromScheduledTasksState(t Task) {
 	delete(m.scheduledTasks, t.ID)
 }
 
-func (m *Manager) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, loaded []Task) error {
+func (m *impl) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, loaded []Task) error {
 	if len(loaded) > 0 {
 		result, err := m.service.MarkLoaded(ctx, loaded)
 		if err != nil {
@@ -325,7 +330,7 @@ func (m *Manager) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, 
 	return nil
 }
 
-func (m *Manager) checkSync(ctx context.Context) (*syncCheckResults, error) {
+func (m *impl) checkSync(ctx context.Context) (*syncCheckResults, error) {
 	all, err := m.service.All(ctx)
 	if err != nil {
 		return nil, err
