@@ -10,6 +10,12 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
 )
 
+func Test_SetupValidators(t *testing.T) {
+	assert.NotPanics(t, func() {
+		SetUpValidators(TestStandardParser{})
+	})
+}
+
 func Test_QueueNameValidator(t *testing.T) {
 	validate := validator.New()
 	_ = validate.RegisterValidation(QueueNameValidatorTag, QueueNameValidator)
