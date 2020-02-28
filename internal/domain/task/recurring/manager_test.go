@@ -14,6 +14,21 @@ func TestNewManager(t *testing.T) {
 	})
 }
 
+func Test_syncCheckResults(t *testing.T) {
+	result := syncCheckResults{}
+	assert.False(t, result.needsResync())
+	task := Task{}
+	result.addToNotInDataStore(task)
+	assert.Len(t, result.notInDataStore, 1)
+	assert.True(t, result.needsResync())
+	result.addToVersionMismatch(task)
+	assert.Len(t, result.versionMismatch, 1)
+	assert.True(t, result.needsResync())
+	result.addToNotInMemory(task)
+	assert.Len(t, result.notInMemory, 1)
+	assert.True(t, result.needsResync())
+}
+
 type mockSchedule struct {
 	next time.Time
 }
