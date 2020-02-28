@@ -275,6 +275,12 @@ func (m *impl) unscheduleAndRemoveFromScheduledTasksState(t Task) {
 	delete(m.scheduledTasks, t.ID)
 }
 
+// Marks the given list of Tasks as loaded, or "seen".
+//
+// Note that "loaded" means "acknowledged" in this context: if a Task has been "deleted",
+// it really means it was soft-deleted. When syncing changes, we need to remove them from
+// our internal state, and then mark them as "loaded" in the data store, but _do not_
+// add them as scheduled in our internal map (because they're not scheduled)
 func (m *impl) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, loaded []Task) error {
 	if len(loaded) > 0 {
 		result, err := m.service.MarkLoaded(ctx, loaded)
@@ -310,12 +316,8 @@ func (m *impl) markAsLoadedAndUpdateScheduledTasksState(ctx context.Context, loa
 		//
 		// Successful updates will get updated metadata versions, while the failures won't, but
 		// it doesn't matter much, we'll get them in subsequent calls
-		for _, t := range result.Successes {
-			if !t.IsDeleted {
-				m.scheduledTasks[t.ID] = t
-			}
-		}
-		for _, t := range result.VersionConflicts {
+		for _, t := range append(result.Successes, result.VersionConflicts...) {
+			// These deleted checks are needed
 			if !t.IsDeleted {
 				m.scheduledTasks[t.ID] = t
 			}

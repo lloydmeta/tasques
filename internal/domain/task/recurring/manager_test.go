@@ -254,6 +254,98 @@ func Test_checkSync(t *testing.T) {
 	assert.EqualValues(t, []Task{inMemNotInStore}, r.notInDataStore)
 }
 
+func Test_markAsLoadedAndUpdateScheduledTasksState_empty(t *testing.T) {
+	scheduler := mockScheduler{}
+	service := MockRecurringTasksService{}
+	m := impl{
+		scheduler: &scheduler,
+		service:   &service,
+	}
+	err := m.markAsLoadedAndUpdateScheduledTasksState(ctx, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, 0, service.MarkLoadedCalled)
+}
+
+func Test_markAsLoadedAndUpdateScheduledTasksState_nonEmpty_mixed_MultiUpdateResult(t *testing.T) {
+	scheduler := mockScheduler{}
+	service := MockRecurringTasksService{}
+
+	successNotDeleted := Task{} // Same as MockDomainRecurringTask except with a different version
+	if err := copier.Copy(&successNotDeleted, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	successNotDeleted.Metadata.Version = metadata.Version{
+		SeqNum:      11111,
+		PrimaryTerm: 22222,
+	}
+
+	successDeleted := Task{} // Same as MockDomainRecurringTask except with a different version
+	if err := copier.Copy(&successDeleted, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	successDeleted.IsDeleted = true
+	successDeleted.Metadata.Version = metadata.Version{
+		SeqNum:      11111,
+		PrimaryTerm: 22222,
+	}
+	successDeleted.ID = "success-deleted"
+
+	notFoundErrTask := Task{}
+	if err := copier.Copy(&notFoundErrTask, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	notFoundErrTask.ID = "not-in-store"
+
+	versionConflictErrTask := Task{}
+	if err := copier.Copy(&versionConflictErrTask, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	versionConflictErrTask.ID = "version-conflict"
+
+	otherErrTaskNotDeleted := Task{}
+	if err := copier.Copy(&otherErrTaskNotDeleted, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	otherErrTaskNotDeleted.ID = "other-err-not-deleted"
+
+	otherErrTaskDeleted := Task{}
+	if err := copier.Copy(&otherErrTaskDeleted, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	otherErrTaskDeleted.IsDeleted = true
+	otherErrTaskDeleted.ID = "other-err-deleted"
+
+	service.MarkLoadedOverride = func() (result *MultiUpdateResult, err error) {
+		return &MultiUpdateResult{
+			Successes:        []Task{successNotDeleted, successDeleted},
+			VersionConflicts: []Task{versionConflictErrTask},
+			NotFounds:        []Task{notFoundErrTask},
+			Others: []BulkUpdateOtherError{{
+				RecurringTask: otherErrTaskNotDeleted,
+				Result:        "no clue",
+			}},
+		}, nil
+	}
+
+	m := impl{
+		scheduler:      &scheduler,
+		service:        &service,
+		scheduledTasks: make(map[Id]Task),
+	}
+	err := m.markAsLoadedAndUpdateScheduledTasksState(ctx, []Task{MockDomainRecurringTask})
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, 1, service.MarkLoadedCalled)
+	assert.EqualValues(t, map[Id]Task{
+		successNotDeleted.ID:      successNotDeleted,
+		versionConflictErrTask.ID: versionConflictErrTask,
+		otherErrTaskNotDeleted.ID: otherErrTaskNotDeleted,
+	}, m.scheduledTasks)
+}
+
 var ctx = context.Background()
 
 type mockLeaderCheck struct {
