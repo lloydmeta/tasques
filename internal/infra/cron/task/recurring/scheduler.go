@@ -12,7 +12,6 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
 )
 
-// TODO tests
 type schedulerImpl struct {
 	cron *cron.Cron
 
@@ -103,8 +102,9 @@ func (i *schedulerImpl) Stop() {
 	defer i.mu.Unlock()
 	i.cron.Stop()
 }
+
 func (i *schedulerImpl) Parse(spec string) (recurring.Schedule, error) {
-	return cron.ParseStandard(spec) //
+	return cron.ParseStandard(spec)
 }
 
 func (i *schedulerImpl) taskDefToNewTask(id task.RecurringTaskId, def *recurring.TaskDefinition) *task.NewTask {
