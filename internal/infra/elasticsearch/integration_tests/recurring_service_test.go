@@ -329,7 +329,7 @@ func Test_esRecurringService_Get(t *testing.T) {
 	now := time.Now().UTC()
 	setRecurringTasksServiceClock(t, service, now)
 	type args struct {
-		id             recurring.Id
+		id             task.RecurringTaskId
 		includeDeleted bool
 	}
 	tests := []struct {
@@ -488,7 +488,7 @@ func Test_esRecurringService_Delete(t *testing.T) {
 	now := time.Now().UTC()
 	setRecurringTasksServiceClock(t, service, now)
 	type args struct {
-		id recurring.Id
+		id task.RecurringTaskId
 	}
 	tests := []struct {
 		name      string
@@ -588,7 +588,7 @@ func Test_esRecurringService_All(t *testing.T) {
 	var createds []recurring.Task
 	for i := uint(0); i < seedNumber; i++ {
 		created, err := service.Create(ctx, &recurring.NewTask{
-			ID:                 recurring.Id(fmt.Sprintf("list-test-%d", i)),
+			ID:                 task.RecurringTaskId(fmt.Sprintf("list-test-%d", i)),
 			ScheduleExpression: "* * * * *",
 			TaskDefinition:     recurring.TaskDefinition{},
 		})
@@ -626,8 +626,8 @@ func Test_esRecurringService_NotLoaded(t *testing.T) {
 	setRecurringTasksServiceClock(t, service, now)
 	seedNumber := scrollPageSize * 2
 
-	var expectedAbsentIds []recurring.Id
-	var expectedPresentIds []recurring.Id
+	var expectedAbsentIds []task.RecurringTaskId
+	var expectedPresentIds []task.RecurringTaskId
 
 	// seed deleted; these need to be visible to sync with newly-deleted items
 	seedRecurringTasks(
@@ -816,7 +816,7 @@ func Test_esRecurringService_MarkLoaded(t *testing.T) {
 	var createds []recurring.Task
 	for i := uint(0); i < seedNumber; i++ {
 		created, err := service.Create(ctx, &recurring.NewTask{
-			ID:                 recurring.Id(fmt.Sprintf("mark-loaded-test-%d", i)),
+			ID:                 task.RecurringTaskId(fmt.Sprintf("mark-loaded-test-%d", i)),
 			ScheduleExpression: "* * * * *",
 			TaskDefinition:     recurring.TaskDefinition{},
 		})
@@ -871,7 +871,7 @@ func refreshIndices(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func seedRecurringTasks(t *testing.T, numberToSeed uint, idGenerator func(i uint) string, isDeleted bool, at time.Time, loadedAt *time.Time, appendTo *[]recurring.Id) {
+func seedRecurringTasks(t *testing.T, numberToSeed uint, idGenerator func(i uint) string, isDeleted bool, at time.Time, loadedAt *time.Time, appendTo *[]task.RecurringTaskId) {
 	for i := uint(0); i < numberToSeed; i++ {
 		existing := JsonObj{
 			"schedule_expression": "* * * * 3",
@@ -894,7 +894,7 @@ func seedRecurringTasks(t *testing.T, numberToSeed uint, idGenerator func(i uint
 			assert.NoError(t, err)
 		}
 		id := idGenerator(i)
-		*appendTo = append(*appendTo, recurring.Id(id))
+		*appendTo = append(*appendTo, task.RecurringTaskId(id))
 		req := esapi.CreateRequest{
 			Index:      infra.TasquesRecurringTasksIndex,
 			DocumentID: id,
@@ -908,7 +908,7 @@ func seedRecurringTasks(t *testing.T, numberToSeed uint, idGenerator func(i uint
 
 }
 
-func assertPresence(t *testing.T, shouldBePresent bool, ids []recurring.Id, observed []recurring.Task) {
+func assertPresence(t *testing.T, shouldBePresent bool, ids []task.RecurringTaskId, observed []recurring.Task) {
 	for _, expectedPresent := range ids {
 		idx := -1
 		for i, listed := range observed {

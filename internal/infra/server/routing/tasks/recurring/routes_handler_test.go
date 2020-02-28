@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lloydmeta/tasques/internal/api/models/common"
+	"github.com/lloydmeta/tasques/internal/domain/task"
 
 	"github.com/lloydmeta/tasques/internal/api/models/task/recurring"
 	"github.com/lloydmeta/tasques/internal/domain/metadata"
@@ -337,7 +338,7 @@ func (m *mockRecurringTasksController) Create(ctx context.Context, task *recurri
 	}
 }
 
-func (m *mockRecurringTasksController) Update(ctx context.Context, id domainRecurring.Id, task *recurring.TaskUpdate) (*recurring.Task, *common.ApiError) {
+func (m *mockRecurringTasksController) Update(ctx context.Context, id task.RecurringTaskId, task *recurring.TaskUpdate) (*recurring.Task, *common.ApiError) {
 	m.updateCalled++
 	if m.updateOverride != nil {
 		return m.updateOverride()
@@ -346,7 +347,7 @@ func (m *mockRecurringTasksController) Update(ctx context.Context, id domainRecu
 	}
 }
 
-func (m *mockRecurringTasksController) Get(ctx context.Context, id domainRecurring.Id) (*recurring.Task, *common.ApiError) {
+func (m *mockRecurringTasksController) Get(ctx context.Context, id task.RecurringTaskId) (*recurring.Task, *common.ApiError) {
 	m.getCalled++
 	if m.getOverride != nil {
 		return m.getOverride()
@@ -355,7 +356,7 @@ func (m *mockRecurringTasksController) Get(ctx context.Context, id domainRecurri
 	}
 }
 
-func (m *mockRecurringTasksController) Delete(ctx context.Context, id domainRecurring.Id) (*recurring.Task, *common.ApiError) {
+func (m *mockRecurringTasksController) Delete(ctx context.Context, id task.RecurringTaskId) (*recurring.Task, *common.ApiError) {
 	m.deleteCalled++
 	if m.deleteOverride != nil {
 		return m.deleteOverride()

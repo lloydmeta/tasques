@@ -28,7 +28,7 @@ func durationPtr(u time.Duration) *Duration {
 
 func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 	type fields struct {
-		ID                 recurring.Id
+		ID                 task.RecurringTaskId
 		ScheduleExpression recurring.ScheduleExpression
 		TaskDefinition     TaskDefinition
 	}

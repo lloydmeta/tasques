@@ -29,6 +29,8 @@ func durationPtr(u time.Duration) *time.Duration {
 	return &u
 }
 
+var recurringTaskId = task.RecurringTaskId("hello")
+
 func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 	now := time.Now().UTC()
 	type fields struct {
@@ -258,6 +260,7 @@ func TestFromDomainTask(t *testing.T) {
 							PrimaryTerm: 2,
 						},
 					},
+					RecurringTaskId: &recurringTaskId,
 				},
 			},
 			Task{
@@ -302,6 +305,7 @@ func TestFromDomainTask(t *testing.T) {
 						PrimaryTerm: 2,
 					},
 				},
+				RecurringTaskId: &recurringTaskId,
 			},
 		}, {
 			"when there are filled attributes (successful task)",

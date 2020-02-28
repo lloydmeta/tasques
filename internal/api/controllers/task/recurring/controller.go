@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/lloydmeta/tasques/internal/api/models/common"
+	"github.com/lloydmeta/tasques/internal/domain/task"
 
 	"github.com/lloydmeta/tasques/internal/api/models/task/recurring"
 	"github.com/lloydmeta/tasques/internal/config"
@@ -17,13 +18,13 @@ type Controller interface {
 	Create(ctx context.Context, task *recurring.NewTask) (*recurring.Task, *common.ApiError)
 
 	// Update updates and returns a Task based on the passed in NewTask
-	Update(ctx context.Context, id domainRecurring.Id, task *recurring.TaskUpdate) (*recurring.Task, *common.ApiError)
+	Update(ctx context.Context, id task.RecurringTaskId, task *recurring.TaskUpdate) (*recurring.Task, *common.ApiError)
 
-	// Get returns a Task by Id
-	Get(ctx context.Context, id domainRecurring.Id) (*recurring.Task, *common.ApiError)
+	// Get returns a Task by RecurringTaskId
+	Get(ctx context.Context, id task.RecurringTaskId) (*recurring.Task, *common.ApiError)
 
-	// Delete deletes and returns a Task by Id
-	Delete(ctx context.Context, id domainRecurring.Id) (*recurring.Task, *common.ApiError)
+	// Delete deletes and returns a Task by RecurringTaskId
+	Delete(ctx context.Context, id task.RecurringTaskId) (*recurring.Task, *common.ApiError)
 
 	// List returns all tasks
 	List(ctx context.Context) ([]recurring.Task, *common.ApiError)
@@ -52,7 +53,7 @@ func (c *impl) Create(ctx context.Context, task *recurring.NewTask) (*recurring.
 	}
 }
 
-func (c *impl) Update(ctx context.Context, id domainRecurring.Id, task *recurring.TaskUpdate) (*recurring.Task, *common.ApiError) {
+func (c *impl) Update(ctx context.Context, id task.RecurringTaskId, task *recurring.TaskUpdate) (*recurring.Task, *common.ApiError) {
 	toUpdate, err := c.recurringTasksService.Get(ctx, id, false)
 	if err != nil {
 		return nil, handleErr(err)
@@ -74,7 +75,7 @@ func (c *impl) Update(ctx context.Context, id domainRecurring.Id, task *recurrin
 	}
 }
 
-func (c *impl) Get(ctx context.Context, id domainRecurring.Id) (*recurring.Task, *common.ApiError) {
+func (c *impl) Get(ctx context.Context, id task.RecurringTaskId) (*recurring.Task, *common.ApiError) {
 	result, err := c.recurringTasksService.Get(ctx, id, false)
 	if err != nil {
 		return nil, handleErr(err)
@@ -84,7 +85,7 @@ func (c *impl) Get(ctx context.Context, id domainRecurring.Id) (*recurring.Task,
 	}
 }
 
-func (c *impl) Delete(ctx context.Context, id domainRecurring.Id) (*recurring.Task, *common.ApiError) {
+func (c *impl) Delete(ctx context.Context, id task.RecurringTaskId) (*recurring.Task, *common.ApiError) {
 	result, err := c.recurringTasksService.Delete(ctx, id)
 	if err != nil {
 		return nil, handleErr(err)

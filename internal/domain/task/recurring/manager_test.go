@@ -11,6 +11,7 @@ import (
 
 	"github.com/lloydmeta/tasques/internal/domain/leader"
 	"github.com/lloydmeta/tasques/internal/domain/metadata"
+	"github.com/lloydmeta/tasques/internal/domain/task"
 )
 
 func TestNewManager(t *testing.T) {
@@ -99,7 +100,7 @@ func Test_CommonRecurringFunc_NewlyNotLeader(t *testing.T) {
 				scheduler:   &scheduler,
 				service:     &service,
 				leaderState: LEADER,
-				scheduledTasks: map[Id]Task{
+				scheduledTasks: map[task.RecurringTaskId]Task{
 					MockDomainRecurringTask.ID: MockDomainRecurringTask,
 				}}
 			f := tt.getFunc(&m)
@@ -108,7 +109,7 @@ func Test_CommonRecurringFunc_NewlyNotLeader(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			assert.EqualValues(t, []Id{MockDomainRecurringTask.ID}, scheduler.unscheduledIds)
+			assert.EqualValues(t, []task.RecurringTaskId{MockDomainRecurringTask.ID}, scheduler.unscheduledIds)
 			assert.Empty(t, scheduler.scheduledTasks)
 		})
 	}
@@ -140,7 +141,7 @@ func Test_CommonRecurringFunc_StillNotLeader(t *testing.T) {
 				scheduler:   &scheduler,
 				service:     &service,
 				leaderState: NOT_LEADER,
-				scheduledTasks: map[Id]Task{
+				scheduledTasks: map[task.RecurringTaskId]Task{
 					MockDomainRecurringTask.ID: MockDomainRecurringTask,
 				}}
 			f := tt.getFunc(&m)
@@ -237,7 +238,7 @@ func Test_checkSync(t *testing.T) {
 		scheduler:   &scheduler,
 		service:     &service,
 		leaderState: LEADER,
-		scheduledTasks: map[Id]Task{
+		scheduledTasks: map[task.RecurringTaskId]Task{
 			inMemWrongVersion.ID: inMemWrongVersion,
 			inMemNotInStore.ID:   inMemNotInStore,
 		},
@@ -332,14 +333,14 @@ func Test_markAsLoadedAndUpdateScheduledTasksState_nonEmpty_mixed_MultiUpdateRes
 	m := impl{
 		scheduler:      &scheduler,
 		service:        &service,
-		scheduledTasks: make(map[Id]Task),
+		scheduledTasks: make(map[task.RecurringTaskId]Task),
 	}
 	err := m.markAsLoadedAndUpdateScheduledTasksState(ctx, []Task{MockDomainRecurringTask})
 	if err != nil {
 		t.Error(err)
 	}
 	assert.EqualValues(t, 1, service.MarkLoadedCalled)
-	assert.EqualValues(t, map[Id]Task{
+	assert.EqualValues(t, map[task.RecurringTaskId]Task{
 		successNotDeleted.ID:      successNotDeleted,
 		versionConflictErrTask.ID: versionConflictErrTask,
 		otherErrTaskNotDeleted.ID: otherErrTaskNotDeleted,
@@ -377,7 +378,7 @@ type mockScheduler struct {
 	scheduledTasks   []Task
 	scheduleOverride func() error
 
-	unscheduledIds     []Id
+	unscheduledIds     []task.RecurringTaskId
 	unscheduleOverride func() bool
 }
 
@@ -399,7 +400,7 @@ func (m *mockScheduler) Schedule(task Task) error {
 	}
 }
 
-func (m *mockScheduler) Unschedule(taskId Id) bool {
+func (m *mockScheduler) Unschedule(taskId task.RecurringTaskId) bool {
 	m.unscheduledIds = append(m.unscheduledIds, taskId)
 	if m.unscheduleOverride != nil {
 		return m.unscheduleOverride()

@@ -82,6 +82,8 @@ type Task struct {
 	LastClaimed       *LastClaimed        `json:"last_claimed,omitempty"`
 	LastEnqueuedAt    time.Time           `json:"last_enqueued_at" binding:"required" swaggertype:"string" format:"date-time"`
 	Metadata          common.Metadata     `json:"metadata" binding:"required"`
+	// Only populated if this is a Task that was spawned/enqueued by a Recurring Task definition
+	RecurringTaskId *task.RecurringTaskId `json:"recurring_task_id,omitempty" swaggertype:"string"`
 }
 
 var TimeZero time.Time
@@ -167,6 +169,7 @@ func FromDomainTask(dTask *task.Task) Task {
 		LastClaimed:       lastClaimed,
 		LastEnqueuedAt:    time.Time(dTask.LastEnqueuedAt),
 		Metadata:          common.FromDomainMetadata(&dTask.Metadata),
+		RecurringTaskId:   dTask.RecurringTaskId,
 	}
 }
 

@@ -988,6 +988,10 @@
                     "type": "string",
                     "example": "run-later"
                 },
+                "recurring_task_id": {
+                    "description": "Only populated if this is a Task that was spawned/enqueued by a Recurring Task definition",
+                    "type": "string"
+                },
                 "retry_times": {
                     "type": "integer",
                     "example": 10

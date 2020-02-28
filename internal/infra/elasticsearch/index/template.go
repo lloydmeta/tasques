@@ -245,6 +245,15 @@ var TasquesQueuesTemplate = NewTemplate(
 					},
 				},
 			},
+			"recurring_task_id": Json{
+				"type": "text",
+				"fields": Json{
+					"keyword": Json{
+						"type":         "keyword",
+						"ignore_above": 256,
+					},
+				},
+			},
 			"metadata": Json{
 				"properties": Json{
 					"created_at": Json{

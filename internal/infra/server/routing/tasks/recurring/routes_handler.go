@@ -7,7 +7,7 @@ import (
 
 	recurringController "github.com/lloydmeta/tasques/internal/api/controllers/task/recurring"
 	"github.com/lloydmeta/tasques/internal/api/models/task/recurring"
-	domainRecurring "github.com/lloydmeta/tasques/internal/domain/task/recurring"
+	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/infra/server/routing"
 )
 
@@ -64,7 +64,7 @@ func (h *RoutesHandler) create(c *gin.Context) {
 // @Failure 404 {object} common.Body "Recurring Task does not exist"
 // @Router /recurring_tasques/{id} [put]
 func (h *RoutesHandler) update(c *gin.Context) {
-	var id = domainRecurring.Id(c.Param(recurringTaskKey))
+	var id = task.RecurringTaskId(c.Param(recurringTaskKey))
 	var taskUpdate recurring.TaskUpdate
 	if err := c.ShouldBindJSON(&taskUpdate); err != nil {
 		routing.HandleJsonSerdesErr(c, err)
@@ -88,7 +88,7 @@ func (h *RoutesHandler) update(c *gin.Context) {
 // @Failure 404 {object} common.Body "Recurring Task does not exist"
 // @Router /recurring_tasques/{id} [get]
 func (h *RoutesHandler) get(c *gin.Context) {
-	var id = domainRecurring.Id(c.Param(recurringTaskKey))
+	var id = task.RecurringTaskId(c.Param(recurringTaskKey))
 	if t, err := h.Controller.Get(c.Request.Context(), id); err == nil {
 		c.JSON(http.StatusOK, t)
 	} else {
@@ -107,7 +107,7 @@ func (h *RoutesHandler) get(c *gin.Context) {
 // @Failure 404 {object} common.Body "Recurring Task does not exist"
 // @Router /recurring_tasques/{id} [delete]
 func (h *RoutesHandler) delete(c *gin.Context) {
-	var id = domainRecurring.Id(c.Param(recurringTaskKey))
+	var id = task.RecurringTaskId(c.Param(recurringTaskKey))
 	if t, err := h.Controller.Delete(c.Request.Context(), id); err == nil {
 		c.JSON(http.StatusOK, t)
 	} else {

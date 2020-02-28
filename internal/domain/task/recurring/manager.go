@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/lloydmeta/tasques/internal/domain/leader"
+	"github.com/lloydmeta/tasques/internal/domain/task"
 )
 
 type void struct{}
@@ -51,7 +52,7 @@ type impl struct {
 	service   Service
 
 	// Internal state
-	scheduledTasks map[Id]Task
+	scheduledTasks map[task.RecurringTaskId]Task
 	leaderState    state
 
 	// Used to ensure sanity
@@ -63,7 +64,7 @@ func NewManager(scheduler Scheduler, service Service) Manager {
 	return &impl{
 		scheduler:      scheduler,
 		service:        service,
-		scheduledTasks: make(map[Id]Task),
+		scheduledTasks: make(map[task.RecurringTaskId]Task),
 		leaderState:    NOT_LEADER,
 		mu:             sync.Mutex{},
 	}
@@ -339,7 +340,7 @@ func (m *impl) checkSync(ctx context.Context) (*syncCheckResults, error) {
 	}
 	results := syncCheckResults{}
 	// check if what we have in the data store is different from in memory
-	idsFromDataStore := make(map[Id]void, len(all))
+	idsFromDataStore := make(map[task.RecurringTaskId]void, len(all))
 	for _, fromDataStore := range all {
 		idsFromDataStore[fromDataStore.ID] = member
 		if inMemory, present := m.scheduledTasks[fromDataStore.ID]; !present {

@@ -58,6 +58,7 @@ func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Ta
 			CreatedAt:  now,
 			ModifiedAt: now,
 		},
+		RecurringTaskId: (*string)(newTask.RecurringTaskId),
 	}
 
 	toPersistBytes, err := json.Marshal(toPersist)
@@ -669,6 +670,7 @@ type persistedTaskData struct {
 	LastEnqueuedAt    time.Time                `json:"last_enqueued_at"`
 	LastClaimed       *persistedLastClaimed    `json:"last_claimed,omitempty"`
 	Metadata          common.PersistedMetadata `json:"metadata"`
+	RecurringTaskId   *string                  `json:"recurring_task_id,omitempty"`
 }
 
 type persistedReport struct {
@@ -737,6 +739,7 @@ func (pTask *persistedTaskData) toDomainTask(taskId task.Id, queue queue.Name, v
 			ModifiedAt: metadata.ModifiedAt(pTask.Metadata.ModifiedAt),
 			Version:    version,
 		},
+		RecurringTaskId: (*task.RecurringTaskId)(pTask.RecurringTaskId),
 	}
 }
 
@@ -794,6 +797,7 @@ func toPersistedTask(task *task.Task) persistedTaskData {
 			CreatedAt:  time.Time(task.Metadata.CreatedAt),
 			ModifiedAt: time.Time(task.Metadata.ModifiedAt),
 		},
+		RecurringTaskId: (*string)(task.RecurringTaskId),
 	}
 }
 

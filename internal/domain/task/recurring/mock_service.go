@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/lloydmeta/tasques/internal/domain/metadata"
+	"github.com/lloydmeta/tasques/internal/domain/task"
 )
 
 var MockNow = time.Now().UTC()
@@ -54,7 +55,7 @@ func (m *MockRecurringTasksService) Create(ctx context.Context, task *NewTask) (
 	}
 }
 
-func (m *MockRecurringTasksService) Get(ctx context.Context, id Id, includeSoftDeleted bool) (*Task, error) {
+func (m *MockRecurringTasksService) Get(ctx context.Context, id task.RecurringTaskId, includeSoftDeleted bool) (*Task, error) {
 	m.GetCalled++
 	if m.GetOverride != nil {
 		return m.GetOverride()
@@ -63,7 +64,7 @@ func (m *MockRecurringTasksService) Get(ctx context.Context, id Id, includeSoftD
 	}
 }
 
-func (m *MockRecurringTasksService) Delete(ctx context.Context, id Id) (*Task, error) {
+func (m *MockRecurringTasksService) Delete(ctx context.Context, id task.RecurringTaskId) (*Task, error) {
 	m.DeleteCalled++
 	if m.DeleteOverride != nil {
 		return m.DeleteOverride()

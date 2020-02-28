@@ -40,6 +40,8 @@ var ctx = context.Background()
 
 type JsonObj = map[string]interface{}
 
+var recurringId task.RecurringTaskId = "recurrrrr"
+
 func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 	service := buildTasksService()
 	now := time.Now().UTC()
@@ -97,6 +99,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 					Context: &task.Context{
 						"hallo": "welt",
 					},
+					RecurringTaskId: &recurringId,
 				},
 			},
 			wantedJson: JsonObj{
@@ -118,6 +121,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 					"created_at":  now.Format(time.RFC3339Nano),
 					"modified_at": now.Format(time.RFC3339Nano),
 				},
+				"recurring_task_id": (string)(recurringId),
 			},
 		},
 	}

@@ -110,7 +110,7 @@ func (e *EsService) Create(ctx context.Context, task *recurring.NewTask) (*recur
 	}
 }
 
-func (e *EsService) Get(ctx context.Context, id recurring.Id, includeSoftDeleted bool) (*recurring.Task, error) {
+func (e *EsService) Get(ctx context.Context, id task.RecurringTaskId, includeSoftDeleted bool) (*recurring.Task, error) {
 	req := esapi.GetRequest{
 		Index:      TasquesRecurringTasksIndex,
 		DocumentID: string(id),
@@ -143,7 +143,7 @@ func (e *EsService) Get(ctx context.Context, id recurring.Id, includeSoftDeleted
 	}
 }
 
-func (e *EsService) Delete(ctx context.Context, id recurring.Id) (*recurring.Task, error) {
+func (e *EsService) Delete(ctx context.Context, id task.RecurringTaskId) (*recurring.Task, error) {
 	existing, err := e.Get(ctx, id, false)
 	if err != nil {
 		return nil, err
@@ -581,7 +581,7 @@ func domainTaskDefToPersistable(def *recurring.TaskDefinition) persistedRecurrin
 	}
 }
 
-func persistedToDomain(id recurring.Id, data *persistedRecurringTaskData, version metadata.Version) recurring.Task {
+func persistedToDomain(id task.RecurringTaskId, data *persistedRecurringTaskData, version metadata.Version) recurring.Task {
 	return recurring.Task{
 		ID:                 id,
 		ScheduleExpression: recurring.ScheduleExpression(data.ScheduleExpression),
@@ -621,7 +621,7 @@ type esHitPersistedRecurringTask struct {
 }
 
 func (pTask *esHitPersistedRecurringTask) toDomainTask() recurring.Task {
-	return persistedToDomain(recurring.Id(pTask.ID), &pTask.Source, pTask.Version())
+	return persistedToDomain(task.RecurringTaskId(pTask.ID), &pTask.Source, pTask.Version())
 }
 
 func (pTask *esHitPersistedRecurringTask) Version() metadata.Version {

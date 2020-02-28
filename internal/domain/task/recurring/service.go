@@ -3,6 +3,8 @@ package recurring
 import (
 	"context"
 	"fmt"
+
+	"github.com/lloydmeta/tasques/internal/domain/task"
 )
 
 type Service interface {
@@ -16,12 +18,12 @@ type Service interface {
 	// Retrieves a single Task, optionally returning soft-deleted tasks.
 	//
 	// Errors if no such Task is found that is (optionally) non-soft-deleted
-	Get(ctx context.Context, id Id, includeSoftDeleted bool) (*Task, error)
+	Get(ctx context.Context, id task.RecurringTaskId, includeSoftDeleted bool) (*Task, error)
 
 	// Deletes a single Task
 	//
 	// Errors if no such Task is found that is non-deleted
-	Delete(ctx context.Context, id Id) (*Task, error)
+	Delete(ctx context.Context, id task.RecurringTaskId) (*Task, error)
 
 	// Loads returns all persisted RecurringTasks that have not been deleted
 	//
@@ -68,7 +70,7 @@ type BulkUpdateOtherError struct {
 // ServiceErr is an error interface for Service
 type ServiceErr interface {
 	error
-	Id() Id
+	Id() task.RecurringTaskId
 }
 
 type WrappingErr interface {
@@ -79,41 +81,41 @@ type WrappingErr interface {
 // AlreadyExists is returned when the service tries to create
 // a Task, but there already exists one with the same ID
 type AlreadyExists struct {
-	ID Id
+	ID task.RecurringTaskId
 }
 
 func (e AlreadyExists) Error() string {
 	return fmt.Sprintf("Id already exists [%v]", e.ID)
 }
 
-func (e AlreadyExists) Id() Id {
+func (e AlreadyExists) Id() task.RecurringTaskId {
 	return e.ID
 }
 
 // NotFound is returned when the repo cannot find
-// a repo by a given Id
+// a repo by a given RecurringTaskId
 type NotFound struct {
-	ID Id
+	ID task.RecurringTaskId
 }
 
 func (e NotFound) Error() string {
 	return fmt.Sprintf("Could not find [%v]", e.ID)
 }
 
-func (e NotFound) Id() Id {
+func (e NotFound) Id() task.RecurringTaskId {
 	return e.ID
 }
 
 // Invalid version returned when the version is invalid
 type InvalidVersion struct {
-	ID Id
+	ID task.RecurringTaskId
 }
 
 func (e InvalidVersion) Error() string {
 	return fmt.Sprintf("Could not find [%v]", e.ID)
 }
 
-func (e InvalidVersion) Id() Id {
+func (e InvalidVersion) Id() task.RecurringTaskId {
 	return e.ID
 }
 

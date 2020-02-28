@@ -28,7 +28,7 @@ type TaskDefinition struct {
 // We assume that the ScheduleExpression is valid
 // *before* we persist it
 type NewTask struct {
-	ID recurring.Id `json:"id" binding:"required"`
+	ID task.RecurringTaskId `json:"id" binding:"required"`
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
 	TaskDefinition     TaskDefinition               `json:"task_definition" binding:"required"`
@@ -42,7 +42,7 @@ type TaskUpdate struct {
 }
 
 type Task struct {
-	ID recurring.Id `json:"id" binding:"required"`
+	ID task.RecurringTaskId `json:"id" binding:"required"`
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
 	TaskDefinition     TaskDefinition               `json:"task_definition" binding:"required"`

@@ -247,6 +247,10 @@ definitions:
       queue:
         example: run-later
         type: string
+      recurring_task_id:
+        description: Only populated if this is a Task that was spawned/enqueued by
+          a Recurring Task definition
+        type: string
       retry_times:
         example: 10
         type: integer

@@ -9,6 +9,7 @@ import (
 
 	apiRecurring "github.com/lloydmeta/tasques/internal/api/models/task/recurring"
 	"github.com/lloydmeta/tasques/internal/config"
+	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
 )
 
@@ -106,7 +107,7 @@ func Test_impl_Update(t *testing.T) {
 		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
-		id   recurring.Id
+		id   task.RecurringTaskId
 		task *apiRecurring.TaskUpdate
 	}
 	tests := []struct {
@@ -200,7 +201,7 @@ func Test_impl_Get(t *testing.T) {
 		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
-		id recurring.Id
+		id task.RecurringTaskId
 	}
 	tests := []struct {
 		name    string
@@ -258,7 +259,7 @@ func Test_impl_Delete(t *testing.T) {
 		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
-		id recurring.Id
+		id task.RecurringTaskId
 	}
 	tests := []struct {
 		name    string
@@ -331,7 +332,7 @@ func Test_impl_List(t *testing.T) {
 		recurringTasksService *recurring.MockRecurringTasksService
 	}
 	type args struct {
-		id recurring.Id
+		id task.RecurringTaskId
 	}
 	tests := []struct {
 		name    string

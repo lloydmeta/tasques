@@ -18,7 +18,7 @@ type schedulerImpl struct {
 
 	tasksService task.Service
 
-	idsToEntryIds map[recurring.Id]cron.EntryID
+	idsToEntryIds map[task.RecurringTaskId]cron.EntryID
 
 	mu sync.Mutex
 
@@ -31,7 +31,7 @@ func NewScheduler(tasksService task.Service) recurring.Scheduler {
 	return &schedulerImpl{
 		cron:          cron.New(cron.WithLocation(time.UTC)),
 		tasksService:  tasksService,
-		idsToEntryIds: make(map[recurring.Id]cron.EntryID),
+		idsToEntryIds: make(map[task.RecurringTaskId]cron.EntryID),
 		mu:            sync.Mutex{},
 		getUTC: func() time.Time {
 			return time.Now().UTC()
@@ -62,7 +62,7 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 				Msg("Enqueuing Task")
 		}
 
-		_, err := i.tasksService.Create(context.Background(), i.taskDefToNewTask(&task.TaskDefinition))
+		_, err := i.tasksService.Create(context.Background(), i.taskDefToNewTask(task.ID, &task.TaskDefinition))
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -75,7 +75,7 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 	return err
 }
 
-func (i *schedulerImpl) Unschedule(taskId recurring.Id) bool {
+func (i *schedulerImpl) Unschedule(taskId task.RecurringTaskId) bool {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	if entryId, ok := i.idsToEntryIds[taskId]; ok {
@@ -107,7 +107,7 @@ func (i *schedulerImpl) Parse(spec string) (recurring.Schedule, error) {
 	return cron.ParseStandard(spec) //
 }
 
-func (i *schedulerImpl) taskDefToNewTask(def *recurring.TaskDefinition) *task.NewTask {
+func (i *schedulerImpl) taskDefToNewTask(id task.RecurringTaskId, def *recurring.TaskDefinition) *task.NewTask {
 	return &task.NewTask{
 		Queue:             def.Queue,
 		RetryTimes:        def.RetryTimes,
@@ -117,5 +117,6 @@ func (i *schedulerImpl) taskDefToNewTask(def *recurring.TaskDefinition) *task.Ne
 		ProcessingTimeout: def.ProcessingTimeout,
 		Args:              def.Args,
 		Context:           def.Context,
+		RecurringTaskId:   &id,
 	}
 }
