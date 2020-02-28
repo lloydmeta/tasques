@@ -5,9 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jinzhu/copier"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lloydmeta/tasques/internal/domain/leader"
+	"github.com/lloydmeta/tasques/internal/domain/metadata"
 )
 
 func TestNewManager(t *testing.T) {
@@ -193,6 +196,63 @@ func Test_RecurringSyncEnforceFunc_StillLeader(t *testing.T) {
 }
 
 //    basic tests for the different parts of RecurringSyncFunc and RecurringSyncEnforceFunc -->
+
+func Test_checkSync(t *testing.T) {
+
+	inMemNotInStore := Task{}
+	if err := copier.Copy(&inMemNotInStore, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	inMemNotInStore.ID = "in-mem-not-in-store"
+
+	inMemWrongVersion := Task{}
+	if err := copier.Copy(&inMemWrongVersion, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	inMemWrongVersion.ID = "wrong-version"
+
+	inStoreWrongVersion := Task{}
+	if err := copier.Copy(&inStoreWrongVersion, &inMemWrongVersion); err != nil {
+		t.Error(err)
+	}
+	inStoreWrongVersion.Metadata.Version = metadata.Version{
+		SeqNum:      10101010101,
+		PrimaryTerm: 90909090909,
+	}
+
+	inStoreNotInMem := Task{}
+	if err := copier.Copy(&inStoreNotInMem, &MockDomainRecurringTask); err != nil {
+		t.Error(err)
+	}
+	inStoreNotInMem.ID = "in-store-not-in-mem"
+
+	scheduler := mockScheduler{}
+	service := MockRecurringTasksService{}
+
+	service.AllOverride = func() (tasks []Task, err error) {
+		return []Task{inStoreWrongVersion, inStoreNotInMem}, nil
+	}
+
+	m := impl{
+		scheduler:   &scheduler,
+		service:     &service,
+		leaderState: LEADER,
+		scheduledTasks: map[Id]Task{
+			inMemWrongVersion.ID: inMemWrongVersion,
+			inMemNotInStore.ID:   inMemNotInStore,
+		},
+	}
+
+	r, err := m.checkSync(ctx)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.EqualValues(t, 1, service.AllCalled)
+	assert.EqualValues(t, []Task{inStoreNotInMem}, r.notInMemory)
+	assert.EqualValues(t, []Task{inStoreWrongVersion}, r.versionMismatch)
+	assert.EqualValues(t, []Task{inMemNotInStore}, r.notInDataStore)
+}
 
 var ctx = context.Background()
 
