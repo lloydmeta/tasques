@@ -102,6 +102,7 @@ func (i *schedulerImpl) Stop() {
 	defer i.mu.Unlock()
 	i.cron.Stop()
 }
+
 func (i *schedulerImpl) Parse(spec string) (recurring.Schedule, error) {
 	return cron.ParseStandard(spec)
 }

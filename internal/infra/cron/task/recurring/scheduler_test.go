@@ -162,3 +162,49 @@ func Test_schedulerImpl_taskDefToNewTask(t *testing.T) {
 	result := scheduler.taskDefToNewTask(recurringTaskId, &taskDef)
 	assert.EqualValues(t, &expectedNewTask, result)
 }
+
+func Test_schedulerImpl_Parse(t *testing.T) {
+	scheduler := NewScheduler(&task.MockTasksService{})
+	type args struct {
+		spec string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "should fail for random specs",
+			args: args{
+				spec: "hahahahhaah",
+			},
+			wantErr: true,
+		},
+		{
+			name: "should work for traditional cron specs",
+			args: args{
+				spec: "0,5,10 * * * *",
+			},
+			wantErr: false,
+		},
+		{
+			name: "should work for macro cron specs",
+			args: args{
+				spec: "@every 15m",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			got, err := scheduler.Parse(tt.args.spec)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			cronEquiv, err := cron.ParseStandard(tt.args.spec)
+			assert.EqualValues(t, cronEquiv, got)
+		})
+	}
+}
