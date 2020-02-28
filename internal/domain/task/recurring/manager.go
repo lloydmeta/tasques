@@ -46,7 +46,6 @@ type Manager interface {
 	RecurringSyncEnforceFunc() func(ctx context.Context, isLeader leader.Checker) error
 }
 
-// TODO tests
 type impl struct {
 	scheduler Scheduler
 	service   Service
