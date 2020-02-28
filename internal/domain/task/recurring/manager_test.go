@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/lloydmeta/tasques/internal/domain/leader"
 )
 
 func TestNewManager(t *testing.T) {
@@ -30,21 +32,131 @@ func Test_syncCheckResults(t *testing.T) {
 	assert.True(t, result.needsResync())
 }
 
-func Test_RecurringSyncFunc_NewLeader(t *testing.T) {
-	scheduler := mockScheduler{}
-	service := MockRecurringTasksService{}
-	m := impl{scheduler: &scheduler, service: &service}
-	f := m.RecurringSyncFunc()
-	leaderChecker := mockLeaderCheck{isLeader: true}
-	err := f(ctx, &leaderChecker)
-	if err != nil {
-		t.Error(err)
-	}
-	assert.EqualValues(t, 1, service.AllCalled)
-	assert.EqualValues(t, []Task{MockDomainRecurringTask}, scheduler.scheduledTasks)
-	assert.EqualValues(t, 1, service.MarkLoadedCalled)
+// <-- common basic sanity tests for RecurringSyncFunc and RecurringSyncEnforceFunc
 
+func Test_CommonRecurringFunc_NewLeader(t *testing.T) {
+	tests := []struct {
+		name    string
+		getFunc func(manager Manager) func(context.Context, leader.Checker) error
+	}{
+		{
+			name: "RecurringSyncFunc",
+			getFunc: func(manager Manager) func(context.Context, leader.Checker) error {
+				return manager.RecurringSyncFunc()
+			},
+		},
+		{
+			name: "RecurringSyncEnforceFunc",
+			getFunc: func(manager Manager) func(context.Context, leader.Checker) error {
+				return manager.RecurringSyncEnforceFunc()
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheduler := mockScheduler{}
+			service := MockRecurringTasksService{}
+			m := impl{scheduler: &scheduler, service: &service}
+			f := tt.getFunc(&m)
+			leaderChecker := mockLeaderCheck{isLeader: true}
+			err := f(ctx, &leaderChecker)
+			if err != nil {
+				t.Error(err)
+			}
+			assert.EqualValues(t, 1, service.AllCalled)
+			assert.EqualValues(t, []Task{MockDomainRecurringTask}, scheduler.scheduledTasks)
+			assert.EqualValues(t, 1, service.MarkLoadedCalled)
+		})
+	}
 }
+
+func Test_CommonRecurringFunc_NewlyNotLeader(t *testing.T) {
+	tests := []struct {
+		name    string
+		getFunc func(manager Manager) func(context.Context, leader.Checker) error
+	}{
+		{
+			name: "RecurringSyncFunc",
+			getFunc: func(manager Manager) func(context.Context, leader.Checker) error {
+				return manager.RecurringSyncFunc()
+			},
+		},
+		{
+			name: "RecurringSyncEnforceFunc",
+			getFunc: func(manager Manager) func(context.Context, leader.Checker) error {
+				return manager.RecurringSyncEnforceFunc()
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheduler := mockScheduler{}
+			service := MockRecurringTasksService{}
+			m := impl{
+				scheduler:   &scheduler,
+				service:     &service,
+				leaderState: LEADER,
+				scheduledTasks: map[Id]Task{
+					MockDomainRecurringTask.ID: MockDomainRecurringTask,
+				}}
+			f := tt.getFunc(&m)
+			leaderChecker := mockLeaderCheck{isLeader: false}
+			err := f(ctx, &leaderChecker)
+			if err != nil {
+				t.Error(err)
+			}
+			assert.EqualValues(t, []Id{MockDomainRecurringTask.ID}, scheduler.unscheduledIds)
+			assert.Empty(t, scheduler.scheduledTasks)
+		})
+	}
+}
+
+func Test_CommonRecurringFunc_StillNotLeader(t *testing.T) {
+	tests := []struct {
+		name    string
+		getFunc func(manager Manager) func(context.Context, leader.Checker) error
+	}{
+		{
+			name: "RecurringSyncFunc",
+			getFunc: func(manager Manager) func(context.Context, leader.Checker) error {
+				return manager.RecurringSyncFunc()
+			},
+		},
+		{
+			name: "RecurringSyncEnforceFunc",
+			getFunc: func(manager Manager) func(context.Context, leader.Checker) error {
+				return manager.RecurringSyncEnforceFunc()
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheduler := mockScheduler{}
+			service := MockRecurringTasksService{}
+			m := impl{
+				scheduler:   &scheduler,
+				service:     &service,
+				leaderState: NOT_LEADER,
+				scheduledTasks: map[Id]Task{
+					MockDomainRecurringTask.ID: MockDomainRecurringTask,
+				}}
+			f := tt.getFunc(&m)
+			leaderChecker := mockLeaderCheck{isLeader: false}
+			err := f(ctx, &leaderChecker)
+			if err != nil {
+				t.Error(err)
+			}
+			// Nothing should have been called, but just check a few methods
+			assert.EqualValues(t, 0, service.AllCalled)
+			assert.EqualValues(t, 0, service.NotLoadedCalled)
+			assert.Empty(t, scheduler.unscheduledIds)
+		})
+	}
+}
+
+//     common basic sanity tests for RecurringSyncFunc and RecurringSyncEnforceFunc -->
+
+// <-- basic tests for the different parts of RecurringSyncFunc and RecurringSyncEnforceFunc
 
 func Test_RecurringSyncFunc_StillLeader(t *testing.T) {
 	scheduler := mockScheduler{}
@@ -61,47 +173,26 @@ func Test_RecurringSyncFunc_StillLeader(t *testing.T) {
 	assert.EqualValues(t, 1, service.MarkLoadedCalled)
 }
 
-func Test_RecurringSyncFunc_NewlyNotLeader(t *testing.T) {
+func Test_RecurringSyncEnforceFunc_StillLeader(t *testing.T) {
 	scheduler := mockScheduler{}
 	service := MockRecurringTasksService{}
-	m := impl{
-		scheduler:   &scheduler,
-		service:     &service,
-		leaderState: LEADER,
-		scheduledTasks: map[Id]Task{
-			MockDomainRecurringTask.ID: MockDomainRecurringTask,
-		}}
-	f := m.RecurringSyncFunc()
-	leaderChecker := mockLeaderCheck{isLeader: false}
+	m := impl{scheduler: &scheduler, service: &service, leaderState: LEADER}
+	f := m.RecurringSyncEnforceFunc()
+	leaderChecker := mockLeaderCheck{isLeader: true}
 	err := f(ctx, &leaderChecker)
 	if err != nil {
 		t.Error(err)
 	}
-	assert.EqualValues(t, []Id{MockDomainRecurringTask.ID}, scheduler.unscheduledIds)
-	assert.Empty(t, scheduler.scheduledTasks)
+	// The following is the worst case scenario
+	// 1st for initial load, 2nd for check, 3rd for full reload
+	assert.EqualValues(t, 3, service.AllCalled)
+	// 1st from initial load, 2nd from full reload
+	assert.EqualValues(t, []Task{MockDomainRecurringTask, MockDomainRecurringTask}, scheduler.scheduledTasks)
+	// 1st from initial load, 2nd from full reload
+	assert.EqualValues(t, 2, service.MarkLoadedCalled)
 }
 
-func Test_RecurringSyncFunc_StillNotLeader(t *testing.T) {
-	scheduler := mockScheduler{}
-	service := MockRecurringTasksService{}
-	m := impl{
-		scheduler:   &scheduler,
-		service:     &service,
-		leaderState: NOT_LEADER,
-		scheduledTasks: map[Id]Task{
-			MockDomainRecurringTask.ID: MockDomainRecurringTask,
-		}}
-	f := m.RecurringSyncFunc()
-	leaderChecker := mockLeaderCheck{isLeader: false}
-	err := f(ctx, &leaderChecker)
-	if err != nil {
-		t.Error(err)
-	}
-	// Nothing should have been called, but just check a few methods
-	assert.EqualValues(t, 0, service.AllCalled)
-	assert.EqualValues(t, 0, service.NotLoadedCalled)
-	assert.Empty(t, scheduler.unscheduledIds)
-}
+//    basic tests for the different parts of RecurringSyncFunc and RecurringSyncEnforceFunc -->
 
 var ctx = context.Background()
 
