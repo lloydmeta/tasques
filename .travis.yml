@@ -14,6 +14,18 @@ matrix:
         - set +e
       after_success:
         - bash <(curl -s https://codecov.io/bash)
+        - |
+          set -e
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
+            TAG=${TRAVIS_PULL_REQUEST} make build-docker-image push-docker-image
+          else
+            make build-docker-image push-docker-image
+          fi
+          set +e
+      env:
+        - secure: "xuZ29uJVzp7HyTQ+YjFGzHMrz9gO2UmIGN+gi/34MIDq633vqRLQdY8Q3dZzd8s+JNlbM5t2s/1UsbwqccraWI8YlerhRNz7CSEDXsDhqjBmP/ELin0wMlSP99fwvTV99wMQa2pNMBVHm0Vo6TkFVwWXJNQr53X16PHxpR3KfSVOM0ll9G5QTjsuDDZPH6+mVVjOPP58jIf4DDcKp1YWTnbyIbghfZN4BFWBrFl2SNdOqaquGF8YyULcRbuLyybHaojEODoWdKLd6mKFjOU5unohVfiwkkCMAfFaEGplO1pqGfoeQ2Pz7ZmfgZp3JX4sT21V6abFJuw24G3vEsfoS+9gwNop19ntbw1uZXp8cUfYLExsphP+MKMO6AgxHjsbSdUOVJqZTVrKzAI8jxjRFxC9JALfp9Iuxpx4MCOY3chi+NAqZONxggHKZRuh0AhFFomIVPGj0njZ1o7B/eJbFxD7G7Qz0pSwK12EVzRU9hCbBjfhGCkIGwAcDgJXDUvW9sIVt+/GZDhRftUZY6ALz5602D0CRo+AL9gpUeoiExdWpxVwFjoqcoCkON3Dg1SGBnyRaxyxZ9+sqzn+epTwDHFRDA9wUWL5Cn+tgh2c4NCsNDrCXR+bxnaNCIHfAGR7JffeL9g+OlKqmdUTKXLRSdNYngGUfsRIQmzkwItTYcQ="
+        - secure: "qyBgOewTU4SwaNkXse38LIB2TAcyNccgdlunD9o0e5yAVieNoCCcoPhtw+/7OnT2ugWu8bL41bYwsF72LOPR6nIAItWhwTylPDZ20/1aYbBZEfuekWP/Mgeb5pohZZVmk9717dc7/XKAkDH5OFcFPMtigSv7aE+1AojYKdamvQ8WTMOadXeX0dXsmas7g09R8uNLwV+pRc01fyKu/MSFJoVEB5EOgfi9uudWLm+7YdpGDA1Cp3CZzDG/SlnWxmlPTWrC89nzisUSjbQv2pZtjhM4Lcvcy0na755CyGM44qITY0eWZ+lFMfZh3Nvxf7I3Jcic0H40LjncO1JkEyG6yiRZUI2m2cQ7WZlTSGYNi9gufcPlCQFagjb/8TSjvVq+QoSsyXLr+WhTVsPjP90PQmVjVVWcx54nxJdbcsChlTtyQaHxHxgO/MUhXcZOt+67oh5POj3vyd60C+c8t45dXOySX0AsfLYrPRC0yxwerwstwJ8tgIAF3Tb44+XqPaBMSjMv99edbl1cIBoRIiKRbngVHnt+HMRbK8PJNUOcKYZokzU/7agLAT/wjKn8Cwj+uSPHPqJ5heHc2h3IOnoaeaRpN/YFj08KMcEccgw5RzqRrYMEmrAtKKuohf3SyvfNuKfnkZvn0fYgUuO8wFyUhqWb/T07v0lU1SC8blu01jw="
     - language: java
       jdk: openjdk8
       script:
