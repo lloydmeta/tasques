@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tasques
+spec:
+  selector:
+    app: tasques
+  ports:
+  - protocol: "TCP"
+    port: 8080
+    targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tasques
+spec:
+  selector:
+    matchLabels:
+      app: tasques
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: tasques
+    spec:
+      initContainers:
+      - name: init-es
+        image: busybox:1.28
+        command: ['sh', '-c', 'until wget -q --spider http://tasques-es-http:9200; do echo waiting for tasques-es-http; sleep 2; done;']
+      - name: init-kb
+        image: busybox:1.28
+        command: ['sh', '-c', 'until wget -q --spider http://tasques-kb-http:5601; do echo waiting for tasques-kb-http; sleep 2; done;']
+      - name: init-apm
+        image: busybox:1.28
+        command: ['sh', '-c', 'until wget -q --spider http://tasques-apm-http:8200; do echo waiting for tasques-apm-http; sleep 2; done;']
+      - name: tasques-setup
+        image: "lloydmeta/tasques:latest"
+        command: ["/app/bin/tasques","setup"]
+        volumeMounts:
+        - name: conf-volume
+          mountPath: /app/config
+      containers:
+      - name: tasques
+        image: "lloydmeta/tasques:latest"
+        volumeMounts:
+        - name: conf-volume
+          mountPath: /app/config
+      volumes:
+      - name: conf-volume
+        hostPath:
+          # directory location on host
+          path: /tmp/tasques_config
+          # this field is optional
+          type: Directory

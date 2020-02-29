@@ -14,6 +14,18 @@ matrix:
         - set +e
       after_success:
         - bash <(curl -s https://codecov.io/bash)
+        - |
+          set -e
+          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
+            DOCKER_TAGS="PR_${TRAVIS_PULL_REQUEST}" make build-docker-image push-docker-image
+          else
+            DOCKER_TAGS="latest ${TRAVIS_TAG} ${TRAVIS_COMMIT}" make build-docker-image push-docker-image
+          fi
+          set +e
+      env:
+        - secure: "PBIC2G+Y6o6CVVrTVRd5yTi24svWagMEQiFD4OnzRCYrm/U+SSvjI0iaOj2I4u6JKV/zsaW9fEs5DeU3y7/Fx+p3wrKT3f2gObuNx0Ci3wRS6b4uuYmgIezJTQxaJtIUAco1jASIvJp7KgqX5MnbUFdMWBKIwK3PRWinPvWaU+ehl0HQgfdo6VEhUQpYjtjEgbBEXjCUhHCfdFCs+pf79DJDH9BQxwPJUp1p66CQYFiRQOmTKTQ9laCuQfmML1NHkBO+p6iFv/p69KaLckk1+RrRx4Y6jzznspOo8F031uPIq7D9iKf5EfYGYqfJKzBnOv0vh8xaR+O0fEVVvjMicR5PZO19qmgEILfvpzdJu6iCg1P3j05QlJTzyipDF77epEqGMATtzqvL3ow0a4pjG22Lp4X4B6OxDwvq1OwfCnDEDGWlKBX/jY6hG7u8KcVCoIc44J+ZucdLlpkHNDpnS3J1fyMM1NZbzob9J0PFHW3cns8dxCB0QXUyhF4Ej3BFmwYR5n5VtbuPNUSyxaVVu50nbgJ6h8fJ625cbnqTknKcnNGnwMdh1eHslpzFuk7qPTwSeTTzgPV5V/Q1z82PHdFgHqtIyv9DFjMAzFML/42RKU5+2LK+oHIYmOJPvyfKBiiQM+sorfxx5xW6Zw2aM+bKiEiWUmjRrGIHgHCP450="
+        - secure: "wcvPficxDQYkF8WtuZFBxBLRUTl3LUwcriKacn0Q6Lbz8BmXZWqUJdnK6C5kYkO4RkGkrke1rhSSqQzNxqFUTT6PW+HENekETWxHBOPp6Ep9smsyrb+hnX/p9uDwrO2NA3GAtvx72kO8hlN4SOW6DRA03AywLVlV1eTZnz7ogHVJ5rAlOEbLHLjjYRTrbhYXd8cvr3wQgXE2k4u/5Z+0F16ny6YL3oSYjncA0y1xT+rHuFuOlkeeonmAQe3ueWWf8fdfZQR6+anASjLn6WkwfJJqRLecT3Jjnaodn6Q96dCCb6+D61Chv6cMgjeNfSPHbk52uk/PdIO76D7OJf8iAO+X7hK0TEAyNJXHpgTkGVQnQwmktiuxsqeD5ah4aELOgSxjIONoHujPW0OcTCczHXLDqK0KUMaac/UGfLWV1Sf6zuiHBjvcgB4IK7IEJdbXQLZ6q/FhId7jZfrNC6+svYdoE4ZL9Wym4cXFm0iBlVMfyTm3zf6Ya03ps08o6fUtzQwQx02SrBelFeJd/j+0/iI3l03qkzGebvHYcWydS1TPWszw1Prv0jslGbLxuDx5U26SYp+kGU0Kxza6UWTkUmQXUDtx9U1DIVo3ufaBcdROowjI4FURJyC6LRSSwXX09e5hiTDo2gPcpYjz8wF+qhbDcPbwQhlhgj+2PUqnk40="
     - language: java
       jdk: openjdk8
       script:

@@ -1,0 +1,22 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: tasques
+  labels:
+    infra: tasques-kib
+spec:
+  version: 7.5.2
+  count: 1
+  elasticsearchRef:
+    name: tasques
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true
+    service:
+      spec:
+        type: LoadBalancer
+        ports:
+          - port: 5601
+            targetPort: 5601
+            protocol: TCP
