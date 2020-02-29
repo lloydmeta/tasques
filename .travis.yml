@@ -18,7 +18,7 @@ matrix:
           set -e
           echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
           if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
-            DOCKER_TAGS=${TRAVIS_PULL_REQUEST} make build-docker-image push-docker-image
+            DOCKER_TAGS="PR_${TRAVIS_PULL_REQUEST}" make build-docker-image push-docker-image
           else
             DOCKER_TAGS="latest ${TRAVIS_TAG} ${TRAVIS_COMMIT}" make build-docker-image push-docker-image
           fi
