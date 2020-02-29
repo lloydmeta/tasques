@@ -1,7 +1,9 @@
-DOCKER_TAG ?= latest
+DOCKER_TAGS ?= latest
 
 build-docker-image:
-	docker build -t lloydmeta/tasques:${DOCKER_TAG} . -f docker/Dockerfile
+	@tag_string=''; \
+	 for tag in ${DOCKER_TAGS}; do tag_string="$$tag_string -t lloydmeta/tasques:$$tag"; done; \
+	 docker build $$tag_string . -f docker/Dockerfile
 
 push-docker-image:
-	docker push lloydmeta/tasques:${DOCKER_TAG}
+	@for tag in ${DOCKER_TAGS}; do docker push lloydmeta/tasques:$$tag; done;
