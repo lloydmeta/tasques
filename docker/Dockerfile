@@ -1,7 +1,7 @@
 ############################
 # STEP 1 build executable binary
 ############################
-FROM golang:alpine AS builder
+FROM golang:sha256:e484434a085a28801e81089cc8bcec65bc990dd25a070e3dd6e04b19ceafaced AS builder
 
 # Install git + SSL ca certificates.
 # Git is required for fetching the dependencies.
@@ -43,6 +43,10 @@ RUN mkdir /app/logs && chown tasques:tasques /app/logs
 # STEP 2 build a small image
 ############################
 FROM scratch
+
+LABEL org.label-schema.vcs-ref=$VCS_REF \
+      org.label-schema.vcs-url="https://github.com/lloydmeta/tasques" \
+      org.label-schema.build-date=$BUILD_DATE
 
 # Import from builder.
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo

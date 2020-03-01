@@ -1,4 +1,4 @@
-## Tasques [![Build Status](https://travis-ci.org/lloydmeta/tasques.svg?branch=master)](https://travis-ci.org/lloydmeta/tasques) [![codecov](https://codecov.io/gh/lloydmeta/tasques/branch/master/graph/badge.svg)](https://codecov.io/gh/lloydmeta/tasques)
+## Tasques [![Build Status](https://travis-ci.org/lloydmeta/tasques.svg?branch=master)](https://travis-ci.org/lloydmeta/tasques) [![codecov](https://codecov.io/gh/lloydmeta/tasques/branch/master/graph/badge.svg)](https://codecov.io/gh/lloydmeta/tasques) [![](https://images.microbadger.com/badges/image/lloydmeta/tasques.svg)](https://microbadger.com/images/lloydmeta/tasques "tasques docker image details")
 
 Task queues backed by ES: Tasques.
 
@@ -18,7 +18,7 @@ Some of these may be goals :p
   - Tasks that are picked up by workers that either don't report in or finish on time get timed out.
 - Unclaiming
   - Tasks that were picked up but can't be handled now can be requeued without consequence.
-  
+
 ### Requirements
 
 1. Go 1.13+
@@ -34,7 +34,7 @@ Some of these may be goals :p
 3. `go run ./app` and hit the endpoints.
   - For Swagger, go to [localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
     ![Swagger](swagger.png)
-    
+
 There is also an example project that demonstrates the application-tasques-worker relationship more thoroughly; please
 see `example/ciphers` for more details.
 
