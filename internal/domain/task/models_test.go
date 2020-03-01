@@ -157,9 +157,10 @@ func TestTask_IntoClaimed(t1 *testing.T) {
 		wantedAttempted   AttemptedTimes
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
 	}{
 		{
 			name: "Claiming a previously unclaimed task should work",
@@ -190,6 +191,38 @@ func TestTask_IntoClaimed(t1 *testing.T) {
 				},
 				wantedAttempted: 6,
 			},
+			wantErr: false,
+		},
+		{
+			name: "Claiming a Task not in QUEUED or FAILED state should fail",
+			fields: fields{
+				ID:                "test1",
+				Queue:             "q",
+				RetryTimes:        10,
+				Attempted:         5,
+				Kind:              "something",
+				State:             DEAD,
+				Priority:          3,
+				RunAt:             RunAt(now),
+				ProcessingTimeout: ProcessingTimeout(1 * time.Hour),
+				Args:              nil,
+				Context:           nil,
+				LastClaimed:       nil,
+				LastEnqueuedAt:    EnqueuedAt(now),
+				Metadata:          metadata.Metadata{},
+			},
+			args: args{
+				workerId: "werk",
+				at:       ClaimedAt(now),
+				wantedLastClaimed: LastClaimed{
+					WorkerId:   "werk",
+					ClaimedAt:  ClaimedAt(now),
+					TimesOutAt: TimesOutAt(now.Add(1 * time.Hour)),
+					Result:     nil,
+				},
+				wantedAttempted: 6,
+			},
+			wantErr: true,
 		},
 		{
 			name: "Claiming a previously claimed task should overwrite what was there before",
@@ -199,7 +232,7 @@ func TestTask_IntoClaimed(t1 *testing.T) {
 				RetryTimes:        10,
 				Attempted:         5,
 				Kind:              "something",
-				State:             QUEUED,
+				State:             FAILED,
 				Priority:          3,
 				RunAt:             RunAt(now),
 				ProcessingTimeout: ProcessingTimeout(2 * time.Hour),
@@ -235,6 +268,7 @@ func TestTask_IntoClaimed(t1 *testing.T) {
 				},
 				wantedAttempted: 6,
 			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -255,9 +289,14 @@ func TestTask_IntoClaimed(t1 *testing.T) {
 				LastEnqueuedAt:    tt.fields.LastEnqueuedAt,
 				Metadata:          tt.fields.Metadata,
 			}
-			t.IntoClaimed(tt.args.workerId, tt.args.at)
-			assert.EqualValues(t1, &tt.args.wantedLastClaimed, t.LastClaimed)
-			assert.EqualValues(t1, tt.args.wantedAttempted, t.Attempted)
+			err := t.IntoClaimed(tt.args.workerId, tt.args.at)
+			if tt.wantErr {
+				assert.Error(t1, err)
+			} else {
+				assert.Nil(t1, err)
+				assert.EqualValues(t1, &tt.args.wantedLastClaimed, t.LastClaimed)
+				assert.EqualValues(t1, tt.args.wantedAttempted, t.Attempted)
+			}
 		})
 	}
 }

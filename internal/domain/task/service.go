@@ -159,4 +159,17 @@ func (a ReportFromThePast) Id() Id {
 	return a.ID
 }
 
+type Unclaimable struct {
+	ID           Id
+	CurrentState State
+}
+
+func (a Unclaimable) Error() string {
+	return fmt.Sprintf("The Task [%v] is not in a claimable state [%v]", a.ID, a.CurrentState)
+}
+
+func (a Unclaimable) Id() Id {
+	return a.ID
+}
+
 //     Errors -->

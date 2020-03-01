@@ -111,15 +111,25 @@ func (t *Task) RemainingAttempts() RemainingAttempts {
 // Note that it does no error checking (e.g. making sure the task is in the right status), because
 // this is an internal method that is called directly after a search for claimable tasks in the
 // ES tasks service implementation.
-func (t *Task) IntoClaimed(workerId worker.Id, at ClaimedAt) {
-	t.State = CLAIMED
-	t.Attempted++
-	t.LastClaimed = &LastClaimed{
-		WorkerId:   workerId,
-		ClaimedAt:  at,
-		TimesOutAt: TimesOutAt(time.Time(at).Add(time.Duration(t.ProcessingTimeout))),
-		LastReport: nil,
-		Result:     nil,
+//
+// Returns an error if the Task is not currently in a claimable state
+func (t *Task) IntoClaimed(workerId worker.Id, at ClaimedAt) error {
+	if t.State == QUEUED || t.State == FAILED {
+		t.State = CLAIMED
+		t.Attempted++
+		t.LastClaimed = &LastClaimed{
+			WorkerId:   workerId,
+			ClaimedAt:  at,
+			TimesOutAt: TimesOutAt(time.Time(at).Add(time.Duration(t.ProcessingTimeout))),
+			LastReport: nil,
+			Result:     nil,
+		}
+		return nil
+	} else {
+		return Unclaimable{
+			ID:           t.ID,
+			CurrentState: t.State,
+		}
 	}
 }
 
