@@ -34,6 +34,7 @@ func NewScheduler(tasksService task.Service, tracer tracing.Tracer) recurring.Sc
 		tasksService:  tasksService,
 		idsToEntryIds: make(map[task.RecurringTaskId]cron.EntryID),
 		mu:            sync.Mutex{},
+		tracer:        tracer,
 		getUTC: func() time.Time {
 			return time.Now().UTC()
 		},
