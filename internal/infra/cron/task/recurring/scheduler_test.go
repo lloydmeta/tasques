@@ -11,11 +11,12 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/metadata"
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
+	"github.com/lloydmeta/tasques/internal/infra/apm/tracing"
 )
 
 func Test_NewScheduler(t *testing.T) {
 	assert.NotPanics(t, func() {
-		NewScheduler(&task.MockTasksService{})
+		NewScheduler(&task.MockTasksService{}, tracing.NoopTracer{})
 	})
 }
 
@@ -39,6 +40,7 @@ func Test_schedulerImpl_Schedule(t *testing.T) {
 	scheduler := &schedulerImpl{
 		cron:          cron.New(cron.WithLocation(time.UTC)),
 		tasksService:  &tasksService,
+		tracer:        tracing.NoopTracer{},
 		idsToEntryIds: make(map[task.RecurringTaskId]cron.EntryID),
 		mu:            sync.Mutex{},
 		getUTC: func() time.Time {
@@ -106,6 +108,7 @@ func Test_schedulerImpl_Unschedule(t *testing.T) {
 			i := &schedulerImpl{
 				cron:          cron.New(cron.WithLocation(time.UTC)),
 				tasksService:  tt.fields.tasksService,
+				tracer:        tracing.NoopTracer{},
 				idsToEntryIds: tt.fields.idsToEntryIds,
 				mu:            sync.Mutex{},
 				getUTC: func() time.Time {
@@ -124,6 +127,7 @@ func Test_schedulerImpl_taskDefToNewTask(t *testing.T) {
 	scheduler := &schedulerImpl{
 		cron:          cron.New(cron.WithLocation(time.UTC)),
 		tasksService:  &task.MockTasksService{},
+		tracer:        tracing.NoopTracer{},
 		idsToEntryIds: make(map[task.RecurringTaskId]cron.EntryID),
 		mu:            sync.Mutex{},
 		getUTC: func() time.Time {
@@ -164,7 +168,7 @@ func Test_schedulerImpl_taskDefToNewTask(t *testing.T) {
 }
 
 func Test_schedulerImpl_Parse(t *testing.T) {
-	scheduler := NewScheduler(&task.MockTasksService{})
+	scheduler := NewScheduler(&task.MockTasksService{}, tracing.NoopTracer{})
 	type args struct {
 		spec string
 	}

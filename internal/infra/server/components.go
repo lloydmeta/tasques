@@ -87,7 +87,7 @@ func NewComponents(config *config.App) (*Components, error) {
 			Controller: recurringTasksController,
 		}
 
-		dynamicScheduler := recurring3.NewScheduler(tasksService)
+		dynamicScheduler := recurring3.NewScheduler(tasksService, tracer)
 		recurringTasksManager := recurring2.NewManager(dynamicScheduler, recurringTasksService)
 
 		recurringRunnerLock := buildRecurringTasksLeaderLock(config.Recurring.LeaderLock, esClient, tracer)

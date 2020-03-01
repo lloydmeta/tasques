@@ -1,7 +1,6 @@
 package recurring
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -10,12 +9,15 @@ import (
 
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/task/recurring"
+	"github.com/lloydmeta/tasques/internal/domain/tracing"
 )
 
 type schedulerImpl struct {
 	cron *cron.Cron
 
 	tasksService task.Service
+
+	tracer tracing.Tracer
 
 	idsToEntryIds map[task.RecurringTaskId]cron.EntryID
 
@@ -26,7 +28,7 @@ type schedulerImpl struct {
 
 // Returns the default implementation of a scheduler that delegates to
 // the standard robfig/cron
-func NewScheduler(tasksService task.Service) recurring.Scheduler {
+func NewScheduler(tasksService task.Service, tracer tracing.Tracer) recurring.Scheduler {
 	return &schedulerImpl{
 		cron:          cron.New(cron.WithLocation(time.UTC)),
 		tasksService:  tasksService,
@@ -61,7 +63,9 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 				Msg("Enqueuing Task")
 		}
 
-		_, err := i.tasksService.Create(context.Background(), i.taskDefToNewTask(task.ID, &task.TaskDefinition))
+		tx := i.tracer.BackgroundTx("recurring-task-enqueue")
+		ctx := tx.Context()
+		_, err := i.tasksService.Create(ctx, i.taskDefToNewTask(task.ID, &task.TaskDefinition))
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -69,6 +73,7 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 				Str("expression", string(task.ScheduleExpression)).
 				Msg("Failed to insert new Task at interval")
 		}
+		tx.End()
 	})
 	i.idsToEntryIds[task.ID] = entryId
 	return err
