@@ -20,7 +20,7 @@ matrix:
             echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
             if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
               DOCKER_TAGS="PR_${TRAVIS_PULL_REQUEST}" make build-docker-image push-docker-image docker-push-webhooks
-            else if [ "${TRAVIS_BRANCH}" == "master" ] || [ "${TRAVIS_BRANCH}" == "${TRAVIS_TAG}" ]; then
+            elif [ "${TRAVIS_BRANCH}" == "master" ] || [ "${TRAVIS_BRANCH}" == "${TRAVIS_TAG}" ]; then
               DOCKER_TAGS="latest ${TRAVIS_TAG} ${TRAVIS_COMMIT}" make build-docker-image push-docker-image docker-push-webhooks
             else
               DOCKER_TAGS="${TRAVIS_COMMIT}" make build-docker-image push-docker-image docker-push-webhooks
