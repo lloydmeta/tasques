@@ -90,7 +90,7 @@ type NotFound struct {
 }
 
 func (e NotFound) Error() string {
-	return fmt.Sprintf("Could not find [%v]", e.ID)
+	return fmt.Sprintf("Could not find [%v] in queue [%v]", e.ID, e.QueueName)
 }
 
 func (e NotFound) Id() Id {
@@ -103,7 +103,7 @@ type InvalidVersion struct {
 }
 
 func (e InvalidVersion) Error() string {
-	return fmt.Sprintf("Could not find [%v]", e.ID)
+	return fmt.Sprintf("Version provided did not match persisted version for [%v]", e.ID)
 }
 
 func (e InvalidVersion) Id() Id {
@@ -116,7 +116,7 @@ type InvalidPersistedData struct {
 }
 
 func (e InvalidPersistedData) Error() string {
-	return fmt.Sprintf("Invalid persisted data: find [%v]", e.PersistedData)
+	return fmt.Sprintf("Invalid persisted data [%v]", e.PersistedData)
 }
 
 type NotOwnedByWorker struct {
