@@ -1,7 +1,7 @@
 ############################
 # STEP 1 build executable binary
 ############################
-FROM golang:sha256:e484434a085a28801e81089cc8bcec65bc990dd25a070e3dd6e04b19ceafaced AS builder
+FROM golang@sha256:e484434a085a28801e81089cc8bcec65bc990dd25a070e3dd6e04b19ceafaced AS builder
 
 # Install git + SSL ca certificates.
 # Git is required for fetching the dependencies.
