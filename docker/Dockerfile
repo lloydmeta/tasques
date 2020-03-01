@@ -1,3 +1,6 @@
+ARG VCS_REF
+ARG BUILD_DATE
+
 ############################
 # STEP 1 build executable binary
 ############################
@@ -43,9 +46,6 @@ RUN mkdir /app/logs && chown tasques:tasques /app/logs
 # STEP 2 build a small image
 ############################
 FROM scratch
-
-ARG VCS_REF
-ARG BUILD_DATE
 
 LABEL org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vcs-url="https://github.com/lloydmeta/tasques" \
