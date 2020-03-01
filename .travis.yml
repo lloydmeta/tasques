@@ -16,11 +16,13 @@ matrix:
         - bash <(curl -s https://codecov.io/bash)
         - |
           set -e
-          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-          if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
-            DOCKER_TAGS="PR_${TRAVIS_PULL_REQUEST}" make build-docker-image push-docker-image docker-push-webhooks
-          else
-            DOCKER_TAGS="latest ${TRAVIS_TAG} ${TRAVIS_COMMIT}" make build-docker-image push-docker-image docker-push-webhooks
+          if [ "${TRAVIS_SECURE_ENV_VARS}" != "false" ]; then
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            if [ "${TRAVIS_PULL_REQUEST}" != "false" ]; then
+              DOCKER_TAGS="PR_${TRAVIS_PULL_REQUEST}" make build-docker-image push-docker-image docker-push-webhooks
+            else
+              DOCKER_TAGS="latest ${TRAVIS_TAG} ${TRAVIS_COMMIT}" make build-docker-image push-docker-image docker-push-webhooks
+            fi
           fi
           set +e
       env:
