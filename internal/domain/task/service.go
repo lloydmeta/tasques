@@ -165,7 +165,7 @@ type Unclaimable struct {
 }
 
 func (a Unclaimable) Error() string {
-	return fmt.Sprintf("The Task [%v] is not in a claimable state [%v]", a.ID, a.CurrentState)
+	return fmt.Sprintf("The Task [%v] is in state [%v], which is not claimable", a.ID, a.CurrentState)
 }
 
 func (a Unclaimable) Id() Id {
