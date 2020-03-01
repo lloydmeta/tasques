@@ -355,3 +355,66 @@ func TestReportFromThePast_Id(t *testing.T) {
 		})
 	}
 }
+
+func TestUnclaimable_Error(t *testing.T) {
+	type fields struct {
+		ID           Id
+		CurrentState State
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "error string",
+			fields: fields{
+				ID:           "id",
+				CurrentState: DEAD,
+			},
+			want: "The Task [id] is in state [dead], which is not claimable",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := Unclaimable{
+				ID:           tt.fields.ID,
+				CurrentState: tt.fields.CurrentState,
+			}
+			if got := a.Error(); got != tt.want {
+				t.Errorf("Error() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnclaimable_Id(t *testing.T) {
+	type fields struct {
+		ID           Id
+		CurrentState State
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   Id
+	}{
+		{
+			name: "id",
+			fields: fields{
+				ID: "id",
+			},
+			want: "id",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := Unclaimable{
+				ID:           tt.fields.ID,
+				CurrentState: tt.fields.CurrentState,
+			}
+			if got := a.Id(); got != tt.want {
+				t.Errorf("Id() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

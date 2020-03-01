@@ -531,7 +531,9 @@ func (e *EsService) makeClaim(ctx context.Context, workerId worker.Id, aboutToCl
 	// holy crap `range` returns a copy`
 	for i := 0; i < len(aboutToClaims); i++ {
 		toClaim := &aboutToClaims[i]
-		toClaim.IntoClaimed(workerId, claimedAt)
+		if err := toClaim.IntoClaimed(workerId, claimedAt); err != nil {
+			return nil, err
+		}
 		toClaim.Metadata.ModifiedAt = metadata.ModifiedAt(time.Time(claimedAt))
 	}
 	bulkReqResponse, err := e.bulkUpdateTasks(ctx, aboutToClaims)
