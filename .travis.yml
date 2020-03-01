@@ -23,7 +23,7 @@ matrix:
             else if [ "${TRAVIS_BRANCH}" == "master" ] || [ "${TRAVIS_BRANCH}" == "${TRAVIS_TAG}" ]; then
               DOCKER_TAGS="latest ${TRAVIS_TAG} ${TRAVIS_COMMIT}" make build-docker-image push-docker-image docker-push-webhooks
             else
-              DOCKER_TAGS="${TRAVIS_COMMIT}" make build-docker-image push-docker-image docker-push-webhooks
+              DOCKER_TAGS="${TRAVIS_BRANCH} ${TRAVIS_COMMIT}" make build-docker-image push-docker-image docker-push-webhooks
             fi
           fi
           set +e
