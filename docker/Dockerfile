@@ -47,6 +47,9 @@ RUN mkdir /app/logs && chown tasques:tasques /app/logs
 ############################
 FROM scratch
 
+ARG VCS_REF
+ARG BUILD_DATE
+
 LABEL org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vcs-url="https://github.com/lloydmeta/tasques" \
       org.label-schema.build-date=$BUILD_DATE
