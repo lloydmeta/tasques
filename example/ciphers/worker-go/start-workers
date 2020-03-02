@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+cd "$(dirname "$0")"
+worker_process_ids=()
+
+function kill_workers() {
+  echo "Sending SIGINT to workers workers"
+  for pid in "${worker_process_ids[@]}"; do
+    kill -2 $pid
+  done
+  exit 0
+}
+
+number_of_workers=$1
+
+number_re='^[0-9]+$'
+if ! [[ $number_of_workers =~ $number_re ]]; then
+   echo "Error: Worker number argument (first and only) not a number" >&2; exit 1
+fi
+
+trap kill_workers SIGINT SIGTERM SIGHUP
+
+while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:8080/recurring_tasques)" != "200" ]]; do
+  echo "Waiting for Tasques server to come online ..."
+  sleep 5;
+done
+
+while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' localhost:9201)" != "200" ]]; do
+  echo "Waiting for Cipher ES server to come online ..."
+  sleep 5;
+done
+
+for ((i=0; i<number_of_workers; i++)); do
+   worker_id="go-worker-${i}"
+   echo "Starting  ${worker_id} .."
+   if [ $((i%2)) -eq 0 ]; then
+     go run main.go --worker-id ${worker_id} &
+   else
+     go run main.go --worker-id ${worker_id} -f true &
+   fi
+   worker_process_ids+=($!)
+done
+
+echo "Workers started, hit CTRL+C to stop"
+
+while true; do
+  sleep 1;
+done
