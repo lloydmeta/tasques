@@ -1,29 +1,19 @@
 install-eck:
 	kubectl apply -f https://download.elastic.co/downloads/eck/1.0.1/all-in-one.yaml
 
-deploy-infra:
+deploy:
 	kubectl apply -f elasticsearch.yaml
 	kubectl apply -f kibana.yaml
 	kubectl apply -f apm.yaml
-
-deploy-tasques:
-	@echo "Using config: ../../config/tasques.yaml"
-	@echo "Make sure the file exists, and credentials are set properly (use show-credentials target) .."
-	@rm -rf /tmp/tasques_config
-	@cp -r ../../config /tmp/tasques_config
 	kubectl apply -f tasques.yaml
 
-teardown: teardown-infra teardown-tasques
-
-teardown-infra:
+teardown:
 	kubectl delete \
 		apm/tasques \
 		kibana/tasques \
-		elasticsearch/tasques
-
-teardown-tasques:
-		kubectl delete services/tasques \
-			deployments/tasques
+		elasticsearch/tasques \
+		services/tasques \
+		deployments/tasques
 
 show-credentials:
 	@echo "Tasques cluster elastic user password:"

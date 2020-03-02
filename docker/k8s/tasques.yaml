@@ -37,39 +37,65 @@ spec:
         command: ['sh', '-c', 'until wget -q --spider http://tasques-apm-http:8200; do echo waiting for tasques-apm-http; sleep 2; done;']
       - name: tasques-setup
         image: "lloydmeta/tasques:latest"
-        command: ["/app/bin/tasques","setup"]
-        volumeMounts:
-        - name: conf-volume
-          mountPath: /app/config
-      containers:
-      - name: tasques
-        image: "lloydmeta/tasques:latest"
+        command: ["/app/bin/tasques", "setup"]
         env:
         - name: TASQUES_SERVER_BIND_ADDRESS
           value: 0.0.0.0:8080
+        - name: TASQUES_SERVER_AUTH
+          value: null
         - name: TASQUES_SERVER_ELASTICSEARCH_ADDRESSES
           value: http://tasques-es-http:9200
         - name: TASQUES_SERVER_ELASTICSEARCH_USER
           value: null
-        - name: TASQUES_SERVER_KIBANA_ADDRESSES
+        - name: TASQUES_SERVER_KIBANA_ADDRESS
           value: http://tasques-kb-http:5601
         - name: TASQUES_SERVER_KIBANA_USER_NAME
           value: elastic
         - name: TASQUES_SERVER_KIBANA_USER_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: tasques-es-elastic-user
-              name: elastic
-        - name: TASQUES_SERVER_APM_ADDRESSES
+              name: tasques-es-elastic-user
+              key: elastic
+        - name: TASQUES_SERVER_APM_ADDRESS
           value: http://tasques-apm-http:8200
         - name: TASQUES_SERVER_APM_SECRET_TOKEN
           valueFrom:
             secretKeyRef:
-              key: tasques-apm-token
-              name: secret-token
-        - name: TASQUES_SERVER_LOGGING_JSON
-          value: false
-        - name: TASQUES_SERVER_LOGGING_FILE
+              name: tasques-apm-token
+              key: secret-token
+        - name: TASQUES_SERVER_LOGGING
           value: null
         - name: TASQUES_SERVER_LOGGING_LEVEL
-          value: INFO
+          value: debug
+      containers:
+      - name: tasques
+        image: "lloydmeta/tasques:latest"
+        env:
+        - name: TASQUES_SERVER_BIND_ADDRESS
+          value: 0.0.0.0:8080
+        - name: TASQUES_SERVER_AUTH
+          value: null
+        - name: TASQUES_SERVER_ELASTICSEARCH_ADDRESSES
+          value: http://tasques-es-http:9200
+        - name: TASQUES_SERVER_ELASTICSEARCH_USER
+          value: null
+        - name: TASQUES_SERVER_KIBANA_ADDRESS
+          value: http://tasques-kb-http:5601
+        - name: TASQUES_SERVER_KIBANA_USER_NAME
+          value: elastic
+        - name: TASQUES_SERVER_KIBANA_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: tasques-es-elastic-user
+              key: elastic
+        - name: TASQUES_SERVER_APM_ADDRESS
+          value: http://tasques-apm-http:8200
+        - name: TASQUES_SERVER_APM_SECRET_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: tasques-apm-token
+              key: secret-token
+        - name: TASQUES_SERVER_LOGGING
+          value: null
+        - name: TASQUES_SERVER_LOGGING_LEVEL
+          value: info

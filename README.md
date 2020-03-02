@@ -4,8 +4,6 @@ Task queues backed by ES: Tasques.
 
 ### Features:
 
-Some of these may be goals :p
-
 - Easily scalable:
   - Servers are stateless; easily spin more up as needed
   - The storage engine is Elasticsearch, nuff' said.
@@ -18,6 +16,8 @@ Some of these may be goals :p
   - Tasks that are picked up by workers that either don't report in or finish on time get timed out.
 - Unclaiming
   - Tasks that were picked up but can't be handled now can be requeued without consequence.
+- Recurring Tasks
+  - Tasks that are repeatedly enqueued at configurable intervals (cron format with basic macro support)
 
 ### Requirements
 
@@ -27,12 +27,8 @@ Some of these may be goals :p
 
 #### Running
 
-1. [Install `Go`](https://golang.org/doc/install)
-2. Clone this repo
-3. Stand up an ES (e.g. with Docker `docker run -p 9200:9200 --env discovery.type=single-node elasticsearch:7.5.2`)
-4. Copy the `config/tasques.example.yaml` to `config/tasques.yaml`, adjust if needed
-3. `go run ./app` and hit the endpoints.
-  - For Swagger, go to [localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
+1. Go to `docker/k8s` and run `make install-eck deploy`, and wait until the pods are all ready.
+2. For Swagger, go to [localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
     ![Swagger](swagger.png)
 
 There is also an example project that demonstrates the application-tasques-worker relationship more thoroughly; please
