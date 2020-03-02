@@ -5,13 +5,16 @@ deploy:
 	kubectl apply -f elasticsearch.yaml
 	kubectl apply -f kibana.yaml
 	kubectl apply -f apm.yaml
+	kubectl apply -f tasques.yaml
 
 teardown:
 	kubectl delete \
 		apm/tasques \
 		kibana/tasques \
 		elasticsearch/tasques \
-		elasticsearch/ciphers
+		elasticsearch/ciphers \
+		services/tasques \
+		deployments/tasques
 
 show-credentials:
 	@echo "Tasques cluster elastic user password:"

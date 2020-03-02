@@ -1,4 +1,12 @@
 # Example config template
+#
+# It should contain all supported settings
+#
+# Note this is used as the default template in the Docker image, so settings
+# should not be added/removed haphazardly
+#
+# Note that each setting can be overwritten using env vars with under score `_`
+# substituting for the dot when nesting (e.g. `TASQUES_SERVER_BIND_ADDRESS="0.0.0.0:8080"`)
 
 tasques:
   server:

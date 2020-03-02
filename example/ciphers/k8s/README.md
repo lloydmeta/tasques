@@ -6,8 +6,8 @@ The `Makefile` contains the needed targets, but in short:
 
 1. `make install-eck`
 2. `make deploy`
-3. `make show-credentials` to show credentials for ES and APM. Copy and paste these to the tasques server and cipher 
-   example server and worker configs. 
+3. `make show-credentials` to show credentials for ES and APM. Copy and paste these cipher example server and worker configs.
+   and use them to log into the spun-up kibana server if you want ([localhost:5601](http://localhost:5601)) 
 4. `make teardown` when done to teardown the env.
 
 TLS has been disabled and anonymous access enabled for ease of playing around (but the setup uses the Kibana API, so

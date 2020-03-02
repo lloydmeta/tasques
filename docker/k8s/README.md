@@ -2,4 +2,6 @@
 
 This module allows you to run the a Tasques server for playing around.
 
-Use the make targets `deploy-infra`, `show-credentials`, and `deploy-tasques` to begin.
+* `make install-eck` to install the [ECK](https://github.com/elastic/cloud-on-k8s) k8s operator
+* `make deploy` spins up a working env
+* `make teardown` tears ... it down..

@@ -42,6 +42,8 @@ RUN GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build -ldflags="-w -s" -o /app/bin/
 RUN mkdir /app/config && chown tasques:tasques /app/config
 RUN mkdir /app/logs && chown tasques:tasques /app/logs
 
+COPY --chown=tasques config/tasques.example.yaml /app/config/tasques.yaml
+
 ############################
 # STEP 2 build a small image
 ############################
