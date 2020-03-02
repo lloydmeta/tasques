@@ -2,6 +2,14 @@ package config
 
 import "time"
 
+type Tasques struct {
+	Server App `json:"server" mapstructure:"server"`
+}
+
+type TopLevel struct {
+	Tasques Tasques `json:"tasques" mapstructure:"tasques"`
+}
+
 type App struct {
 	BindAddress     string              `json:"bind_address" mapstructure:"bind_address"`
 	ShutdownTimeout time.Duration       `json:"shutdown_timeout" mapstructure:"shutdown_timeout"`

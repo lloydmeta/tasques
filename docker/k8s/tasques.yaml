@@ -44,13 +44,32 @@ spec:
       containers:
       - name: tasques
         image: "lloydmeta/tasques:latest"
-        volumeMounts:
-        - name: conf-volume
-          mountPath: /app/config
-      volumes:
-      - name: conf-volume
-        hostPath:
-          # directory location on host
-          path: /tmp/tasques_config
-          # this field is optional
-          type: Directory
+        env:
+        - name: TASQUES_SERVER_BIND_ADDRESS
+          value: 0.0.0.0:8080
+        - name: TASQUES_SERVER_ELASTICSEARCH_ADDRESSES
+          value: http://tasques-es-http:9200
+        - name: TASQUES_SERVER_ELASTICSEARCH_USER
+          value: null
+        - name: TASQUES_SERVER_KIBANA_ADDRESSES
+          value: http://tasques-kb-http:5601
+        - name: TASQUES_SERVER_KIBANA_USER_NAME
+          value: elastic
+        - name: TASQUES_SERVER_KIBANA_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: tasques-es-elastic-user
+              name: elastic
+        - name: TASQUES_SERVER_APM_ADDRESSES
+          value: http://tasques-apm-http:8200
+        - name: TASQUES_SERVER_APM_SECRET_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: tasques-apm-token
+              name: secret-token
+        - name: TASQUES_SERVER_LOGGING_JSON
+          value: false
+        - name: TASQUES_SERVER_LOGGING_FILE
+          value: null
+        - name: TASQUES_SERVER_LOGGING_LEVEL
+          value: INFO

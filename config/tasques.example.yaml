@@ -1,4 +1,9 @@
 # Example config template
+#
+# It should contain all supported settings
+#
+# Note this is used as the default template in the Docker image, so settings
+# should not be added/removed haphazardly
 
 tasques:
   server:

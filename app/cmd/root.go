@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -56,6 +57,7 @@ func init() {
 
 // initConfig reads the application config and sets it globally
 func initConfig() {
+	viper.AllowEmptyEnv(true)
 	if configFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(configFile)
@@ -66,7 +68,7 @@ func initConfig() {
 		}
 	}
 
-	viper.SetEnvPrefix("tasques")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
@@ -75,13 +77,17 @@ func initConfig() {
 		log.Fatal().Err(err).Msg("Failed to read the config file")
 	}
 
-	// Marshal it
-	err := viper.UnmarshalKey("tasques.server", &appConfig)
+	// Unmarshal it, UnmarshalKey doesn't play well with Env vars, hence
+	// the top level wrapping in order to do namespacing in the config file
+	var t config.TopLevel
+	err := viper.Unmarshal(&t)
+
 	if err != nil {
 		log.Error().Err(err).Send()
 		closeLogFile()
 		os.Exit(1)
 	}
+	appConfig = t.Tasques.Server
 }
 
 // configureLogging configures the logger based on loaded config
