@@ -3,6 +3,7 @@ definitions:
   common.Body:
     properties:
       message:
+        description: The error message
         example: Something went wrong :(
         type: string
     required:
@@ -11,13 +12,16 @@ definitions:
   common.Metadata:
     properties:
       created_at:
+        description: When the data was created
         format: date-time
         type: string
       modified_at:
+        description: When the data was last modified
         format: date-time
         type: string
       version:
         $ref: '#/definitions/common.Version'
+        description: Data versioning information
         type: object
     type: object
   common.Version:
@@ -30,6 +34,9 @@ definitions:
   recurring.NewTask:
     properties:
       id:
+        description: User-definable Id for the recurring Task. Must not collide with
+          other existing ones.
+        example: repeat-every-minute
         type: string
       schedule_expression:
         description: A schedule expression; can be any valid cron expression, with
@@ -38,6 +45,7 @@ definitions:
         type: string
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'
+        description: The Task to insert at intervals defined by ScheduleExpression
         type: object
     required:
     - id
@@ -47,11 +55,18 @@ definitions:
   recurring.Task:
     properties:
       id:
+        description: User-defined Id for the recurring Task. Must not collide with
+          other existing ones.
+        example: repeat-every-minute
         type: string
       loaded_at:
+        description: |-
+          When this recurring Task was last acknoledged and _loaded_ by a Tasques server for later
+          automatic enqueueing
         type: string
       metadata:
         $ref: '#/definitions/common.Metadata'
+        description: Metadata (data about data)
         type: object
       schedule_expression:
         description: A schedule expression; can be any valid cron expression, with
@@ -60,6 +75,7 @@ definitions:
         type: string
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'
+        description: The Task to insert at intervals defined by ScheduleExpression
         type: object
     required:
     - id
@@ -70,21 +86,34 @@ definitions:
   recurring.TaskDefinition:
     properties:
       args:
+        description: Arguments for this Task
         type: object
       context:
+        description: Context for this Task
         type: object
       kind:
+        description: The kind of Task; corresponds roughly with a function name
         example: sayHello
         type: string
       priority:
+        description: |-
+          The priority of this Task (higher means higher priority)
+          If not passed, defaults to zero (neutral)
         type: integer
       processing_timeout:
+        description: |-
+          How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server
+          If not passed, falls back to a server-side configured default
         example: 30m
         type: string
       queue:
+        description: The queue that a Task will be inserted into
         example: run-later
         type: string
       retry_times:
+        description: |-
+          The number of times that a Task will be retried if it fails
+          If not passed, falls back to a server-side configured default
         example: 10
         type: integer
     required:
@@ -94,12 +123,16 @@ definitions:
   recurring.TaskUpdate:
     properties:
       schedule_expression:
-        description: A schedule expression; can be any valid cron expression, with
-          some support for simple macros
+        description: |-
+          A schedule expression; can be any valid cron expression, with some support for simple macros
+          If not defined, reuses the existing one on the recurring Task
         example: '@every 1m'
         type: string
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'
+        description: |-
+          The Task to insert at intervals defined by ScheduleExpression
+          If not defined, reuses the existing one on the recurring Task
         type: object
     type: object
   task.Args:
@@ -107,12 +140,17 @@ definitions:
   task.Claim:
     properties:
       amount:
+        description: How many Tasks to try to claim
         example: 1
         type: integer
       block_for:
+        description: |-
+          How long to block for before retrying, if the specified amount cannot be claimed.
+          If not passed, falls back to a server-side configured default
         example: 1s
         type: string
       queues:
+        description: The Task queues to claim from
         example:
         - run-later
         - resize-images
@@ -135,18 +173,24 @@ definitions:
   task.LastClaimed:
     properties:
       claimed_at:
+        description: When the claim was made
         format: date-time
         type: string
       last_report:
         $ref: '#/definitions/task.Report'
+        description: The LastReport filed by a worker holding a claim on the Task
         type: object
       result:
         $ref: '#/definitions/task.Result'
+        description: The processing Result
         type: object
       times_out_at:
+        description: When the Task will be timed out if the worker doesn't finish
+          or report back
         format: date-time
         type: string
       worker_id:
+        description: Id belonging to a worker that claimed the Task
         type: string
     required:
     - claimed_at
@@ -157,29 +201,46 @@ definitions:
     properties:
       data:
         $ref: '#/definitions/task.ReportedData'
+        description: Optional data for the report
         type: object
     type: object
   task.NewTask:
     properties:
       args:
+        description: Arguments for this Task
         type: object
       context:
+        description: Context for this Task
         type: object
       kind:
+        description: The kind of Task; corresponds roughly with a function name
         example: sayHello
         type: string
       priority:
+        description: |-
+          The priority of this Task (higher means higher priority)
+          If not passed, defaults to zero (neutral)
         type: integer
       processing_timeout:
+        description: |-
+          How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server
+          If not passed, falls back to a server-side configured default
         example: 30m
         type: string
       queue:
+        description: The queue that a Task will be inserted into
         example: run-later
         type: string
       retry_times:
+        description: |-
+          The number of times that a Task will be retried if it fails
+          If not passed, falls back to a server-side configured default
         example: 10
         type: integer
       run_at:
+        description: |-
+          If defined, when this Task should run
+          If not passed, falls back to now.
         format: date-time
         type: string
     required:
@@ -189,9 +250,11 @@ definitions:
   task.Report:
     properties:
       at:
+        description: When the report was filed
         format: date-time
         type: string
       data:
+        description: Optional report data
         type: object
     required:
     - at
@@ -201,13 +264,14 @@ definitions:
   task.Result:
     properties:
       at:
+        description: When the Result was produced
         format: date-time
         type: string
       failure:
-        description: Results. Only one of the following will be filled in at a given
-          time
+        description: Failure
         type: object
       success:
+        description: Success
         type: object
     required:
     - at
@@ -220,31 +284,43 @@ definitions:
   task.Task:
     properties:
       args:
+        description: Arguments for this Task
         type: object
       attempted:
+        description: The number of times a Task has been attempted
         type: integer
       context:
+        description: Context for this Task
         type: object
       id:
+        description: Unique identifier of a Task
         type: string
       kind:
+        description: The kind of Task; corresponds roughly with a function name
         example: sayHello
         type: string
       last_claimed:
         $ref: '#/definitions/task.LastClaimed'
+        description: Information on when this Task was last claimed by a worker
         type: object
       last_enqueued_at:
+        description: When this Task was last enqueued
         format: date-time
         type: string
       metadata:
         $ref: '#/definitions/common.Metadata'
+        description: Metadata (data about data)
         type: object
       priority:
+        description: The priority of this Task (higher means higher priority)
         type: integer
       processing_timeout:
+        description: How long a Worker has upon claiming this Task to finish or report
+          back before it gets timed out by the Tasques server
         example: 30m
         type: string
       queue:
+        description: The queue the Task is in
         example: run-later
         type: string
       recurring_task_id:
@@ -252,12 +328,15 @@ definitions:
           a Recurring Task definition
         type: string
       retry_times:
+        description: The number of times that a Task will be retried if it fails
         example: 10
         type: integer
       run_at:
+        description: When this Task should run
         format: date-time
         type: string
       state:
+        description: The state of a Task
         example: queued
         type: string
     required:

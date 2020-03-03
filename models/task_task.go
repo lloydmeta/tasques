@@ -16,58 +16,61 @@ import (
 // swagger:model task.Task
 type TaskTask struct {
 
-	// args
+	// Arguments for this Task
 	Args interface{} `json:"args,omitempty"`
 
-	// attempted
+	// The number of times a Task has been attempted
 	// Required: true
 	Attempted *int64 `json:"attempted"`
 
-	// context
+	// Context for this Task
 	Context interface{} `json:"context,omitempty"`
 
-	// id
+	// Unique identifier of a Task
 	// Required: true
 	ID *string `json:"id"`
 
-	// kind
+	// The kind of Task; corresponds roughly with a function name
 	// Required: true
 	Kind *string `json:"kind"`
 
-	// last claimed
+	// Information on when this Task was last claimed by a worker
 	LastClaimed *TaskLastClaimed `json:"last_claimed,omitempty"`
 
-	// last enqueued at
+	// When this Task was last enqueued
 	// Required: true
 	// Format: date-time
 	LastEnqueuedAt *strfmt.DateTime `json:"last_enqueued_at"`
 
-	// metadata
+	// Metadata (data about data)
 	// Required: true
 	Metadata *CommonMetadata `json:"metadata"`
 
-	// priority
+	// The priority of this Task (higher means higher priority)
 	// Required: true
 	Priority *int64 `json:"priority"`
 
-	// processing timeout
+	// How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server
 	// Required: true
 	ProcessingTimeout *string `json:"processing_timeout"`
 
-	// queue
+	// The queue the Task is in
 	// Required: true
 	Queue *string `json:"queue"`
 
-	// retry times
+	// Only populated if this is a Task that was spawned/enqueued by a Recurring Task definition
+	RecurringTaskID string `json:"recurring_task_id,omitempty"`
+
+	// The number of times that a Task will be retried if it fails
 	// Required: true
 	RetryTimes *int64 `json:"retry_times"`
 
-	// run at
+	// When this Task should run
 	// Required: true
 	// Format: date-time
 	RunAt *strfmt.DateTime `json:"run_at"`
 
-	// state
+	// The state of a Task
 	// Required: true
 	State *string `json:"state"`
 }

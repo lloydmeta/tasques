@@ -4,6 +4,7 @@ type Headers map[string]string
 
 // Body models errors as JSON in the API
 type Body struct {
+	// The error message
 	Message string `json:"message" binding:"required" example:"Something went wrong :("`
 }
 

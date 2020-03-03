@@ -16,7 +16,7 @@ import (
 // swagger:model common.Body
 type CommonBody struct {
 
-	// message
+	// The error message
 	// Required: true
 	Message *string `json:"message"`
 }

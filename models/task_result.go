@@ -16,15 +16,15 @@ import (
 // swagger:model task.Result
 type TaskResult struct {
 
-	// at
+	// When the Result was produced
 	// Required: true
 	// Format: date-time
 	At *strfmt.DateTime `json:"at"`
 
-	// Results. Only one of the following will be filled in at a given time
+	// Failure
 	Failure interface{} `json:"failure,omitempty"`
 
-	// success
+	// Success
 	Success interface{} `json:"success,omitempty"`
 }
 

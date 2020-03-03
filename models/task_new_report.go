@@ -14,7 +14,7 @@ import (
 // swagger:model task.NewReport
 type TaskNewReport struct {
 
-	// data
+	// Optional data for the report
 	Data TaskReportedData `json:"data,omitempty"`
 }
 

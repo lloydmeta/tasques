@@ -16,13 +16,14 @@ import (
 // swagger:model task.Claim
 type TaskClaim struct {
 
-	// amount
+	// How many Tasks to try to claim
 	Amount int64 `json:"amount,omitempty"`
 
-	// block for
+	// How long to block for before retrying, if the specified amount cannot be claimed.
+	// If not passed, falls back to a server-side configured default
 	BlockFor string `json:"block_for,omitempty"`
 
-	// queues
+	// The Task queues to claim from
 	// Required: true
 	Queues []string `json:"queues"`
 }

@@ -635,6 +635,7 @@
             ],
             "properties": {
                 "message": {
+                    "description": "The error message",
                     "type": "string",
                     "example": "Something went wrong :("
                 }
@@ -644,14 +645,17 @@
             "type": "object",
             "properties": {
                 "created_at": {
+                    "description": "When the data was created",
                     "type": "string",
                     "format": "date-time"
                 },
                 "modified_at": {
+                    "description": "When the data was last modified",
                     "type": "string",
                     "format": "date-time"
                 },
                 "version": {
+                    "description": "Data versioning information",
                     "type": "object",
                     "$ref": "#/definitions/common.Version"
                 }
@@ -677,7 +681,9 @@
             ],
             "properties": {
                 "id": {
-                    "type": "string"
+                    "description": "User-definable Id for the recurring Task. Must not collide with other existing ones.",
+                    "type": "string",
+                    "example": "repeat-every-minute"
                 },
                 "schedule_expression": {
                     "description": "A schedule expression; can be any valid cron expression, with some support for simple macros",
@@ -685,6 +691,7 @@
                     "example": "@every 1m"
                 },
                 "task_definition": {
+                    "description": "The Task to insert at intervals defined by ScheduleExpression",
                     "type": "object",
                     "$ref": "#/definitions/recurring.TaskDefinition"
                 }
@@ -700,12 +707,16 @@
             ],
             "properties": {
                 "id": {
-                    "type": "string"
+                    "description": "User-defined Id for the recurring Task. Must not collide with other existing ones.",
+                    "type": "string",
+                    "example": "repeat-every-minute"
                 },
                 "loaded_at": {
+                    "description": "When this recurring Task was last acknoledged and _loaded_ by a Tasques server for later\nautomatic enqueueing",
                     "type": "string"
                 },
                 "metadata": {
+                    "description": "Metadata (data about data)",
                     "type": "object",
                     "$ref": "#/definitions/common.Metadata"
                 },
@@ -715,6 +726,7 @@
                     "example": "@every 1m"
                 },
                 "task_definition": {
+                    "description": "The Task to insert at intervals defined by ScheduleExpression",
                     "type": "object",
                     "$ref": "#/definitions/recurring.TaskDefinition"
                 }
@@ -728,27 +740,34 @@
             ],
             "properties": {
                 "args": {
+                    "description": "Arguments for this Task",
                     "type": "object"
                 },
                 "context": {
+                    "description": "Context for this Task",
                     "type": "object"
                 },
                 "kind": {
+                    "description": "The kind of Task; corresponds roughly with a function name",
                     "type": "string",
                     "example": "sayHello"
                 },
                 "priority": {
+                    "description": "The priority of this Task (higher means higher priority)\nIf not passed, defaults to zero (neutral)",
                     "type": "integer"
                 },
                 "processing_timeout": {
+                    "description": "How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server\nIf not passed, falls back to a server-side configured default",
                     "type": "string",
                     "example": "30m"
                 },
                 "queue": {
+                    "description": "The queue that a Task will be inserted into",
                     "type": "string",
                     "example": "run-later"
                 },
                 "retry_times": {
+                    "description": "The number of times that a Task will be retried if it fails\nIf not passed, falls back to a server-side configured default",
                     "type": "integer",
                     "example": 10
                 }
@@ -758,11 +777,12 @@
             "type": "object",
             "properties": {
                 "schedule_expression": {
-                    "description": "A schedule expression; can be any valid cron expression, with some support for simple macros",
+                    "description": "A schedule expression; can be any valid cron expression, with some support for simple macros\nIf not defined, reuses the existing one on the recurring Task",
                     "type": "string",
                     "example": "@every 1m"
                 },
                 "task_definition": {
+                    "description": "The Task to insert at intervals defined by ScheduleExpression\nIf not defined, reuses the existing one on the recurring Task",
                     "type": "object",
                     "$ref": "#/definitions/recurring.TaskDefinition"
                 }
@@ -778,14 +798,17 @@
             ],
             "properties": {
                 "amount": {
+                    "description": "How many Tasks to try to claim",
                     "type": "integer",
                     "example": 1
                 },
                 "block_for": {
+                    "description": "How long to block for before retrying, if the specified amount cannot be claimed.\nIf not passed, falls back to a server-side configured default",
                     "type": "string",
                     "example": "1s"
                 },
                 "queues": {
+                    "description": "The Task queues to claim from",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -821,22 +844,27 @@
             ],
             "properties": {
                 "claimed_at": {
+                    "description": "When the claim was made",
                     "type": "string",
                     "format": "date-time"
                 },
                 "last_report": {
+                    "description": "The LastReport filed by a worker holding a claim on the Task",
                     "type": "object",
                     "$ref": "#/definitions/task.Report"
                 },
                 "result": {
+                    "description": "The processing Result",
                     "type": "object",
                     "$ref": "#/definitions/task.Result"
                 },
                 "times_out_at": {
+                    "description": "When the Task will be timed out if the worker doesn't finish or report back",
                     "type": "string",
                     "format": "date-time"
                 },
                 "worker_id": {
+                    "description": "Id belonging to a worker that claimed the Task",
                     "type": "string"
                 }
             }
@@ -845,6 +873,7 @@
             "type": "object",
             "properties": {
                 "data": {
+                    "description": "Optional data for the report",
                     "type": "object",
                     "$ref": "#/definitions/task.ReportedData"
                 }
@@ -858,31 +887,39 @@
             ],
             "properties": {
                 "args": {
+                    "description": "Arguments for this Task",
                     "type": "object"
                 },
                 "context": {
+                    "description": "Context for this Task",
                     "type": "object"
                 },
                 "kind": {
+                    "description": "The kind of Task; corresponds roughly with a function name",
                     "type": "string",
                     "example": "sayHello"
                 },
                 "priority": {
+                    "description": "The priority of this Task (higher means higher priority)\nIf not passed, defaults to zero (neutral)",
                     "type": "integer"
                 },
                 "processing_timeout": {
+                    "description": "How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server\nIf not passed, falls back to a server-side configured default",
                     "type": "string",
                     "example": "30m"
                 },
                 "queue": {
+                    "description": "The queue that a Task will be inserted into",
                     "type": "string",
                     "example": "run-later"
                 },
                 "retry_times": {
+                    "description": "The number of times that a Task will be retried if it fails\nIf not passed, falls back to a server-side configured default",
                     "type": "integer",
                     "example": 10
                 },
                 "run_at": {
+                    "description": "If defined, when this Task should run\nIf not passed, falls back to now.",
                     "type": "string",
                     "format": "date-time"
                 }
@@ -895,10 +932,12 @@
             ],
             "properties": {
                 "at": {
+                    "description": "When the report was filed",
                     "type": "string",
                     "format": "date-time"
                 },
                 "data": {
+                    "description": "Optional report data",
                     "type": "object"
                 }
             }
@@ -913,14 +952,16 @@
             ],
             "properties": {
                 "at": {
+                    "description": "When the Result was produced",
                     "type": "string",
                     "format": "date-time"
                 },
                 "failure": {
-                    "description": "Results. Only one of the following will be filled in at a given time",
+                    "description": "Failure",
                     "type": "object"
                 },
                 "success": {
+                    "description": "Success",
                     "type": "object"
                 }
             }
@@ -950,41 +991,52 @@
             ],
             "properties": {
                 "args": {
+                    "description": "Arguments for this Task",
                     "type": "object"
                 },
                 "attempted": {
+                    "description": "The number of times a Task has been attempted",
                     "type": "integer"
                 },
                 "context": {
+                    "description": "Context for this Task",
                     "type": "object"
                 },
                 "id": {
+                    "description": "Unique identifier of a Task",
                     "type": "string"
                 },
                 "kind": {
+                    "description": "The kind of Task; corresponds roughly with a function name",
                     "type": "string",
                     "example": "sayHello"
                 },
                 "last_claimed": {
+                    "description": "Information on when this Task was last claimed by a worker",
                     "type": "object",
                     "$ref": "#/definitions/task.LastClaimed"
                 },
                 "last_enqueued_at": {
+                    "description": "When this Task was last enqueued",
                     "type": "string",
                     "format": "date-time"
                 },
                 "metadata": {
+                    "description": "Metadata (data about data)",
                     "type": "object",
                     "$ref": "#/definitions/common.Metadata"
                 },
                 "priority": {
+                    "description": "The priority of this Task (higher means higher priority)",
                     "type": "integer"
                 },
                 "processing_timeout": {
+                    "description": "How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server",
                     "type": "string",
                     "example": "30m"
                 },
                 "queue": {
+                    "description": "The queue the Task is in",
                     "type": "string",
                     "example": "run-later"
                 },
@@ -993,14 +1045,17 @@
                     "type": "string"
                 },
                 "retry_times": {
+                    "description": "The number of times that a Task will be retried if it fails",
                     "type": "integer",
                     "example": 10
                 },
                 "run_at": {
+                    "description": "When this Task should run",
                     "type": "string",
                     "format": "date-time"
                 },
                 "state": {
+                    "description": "The state of a Task",
                     "type": "string",
                     "example": "queued"
                 }

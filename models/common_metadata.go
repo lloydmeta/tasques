@@ -16,15 +16,15 @@ import (
 // swagger:model common.Metadata
 type CommonMetadata struct {
 
-	// created at
+	// When the data was created
 	// Format: date-time
 	CreatedAt strfmt.DateTime `json:"created_at,omitempty"`
 
-	// modified at
+	// When the data was last modified
 	// Format: date-time
 	ModifiedAt strfmt.DateTime `json:"modified_at,omitempty"`
 
-	// version
+	// Data versioning information
 	Version *CommonVersion `json:"version,omitempty"`
 }
 

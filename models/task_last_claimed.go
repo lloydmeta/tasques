@@ -16,23 +16,23 @@ import (
 // swagger:model task.LastClaimed
 type TaskLastClaimed struct {
 
-	// claimed at
+	// When the claim was made
 	// Required: true
 	// Format: date-time
 	ClaimedAt *strfmt.DateTime `json:"claimed_at"`
 
-	// last report
+	// The LastReport filed by a worker holding a claim on the Task
 	LastReport *TaskReport `json:"last_report,omitempty"`
 
-	// result
+	// The processing Result
 	Result *TaskResult `json:"result,omitempty"`
 
-	// times out at
+	// When the Task will be timed out if the worker doesn't finish or report back
 	// Required: true
 	// Format: date-time
 	TimesOutAt *strfmt.DateTime `json:"times_out_at"`
 
-	// worker id
+	// Id belonging to a worker that claimed the Task
 	// Required: true
 	WorkerID *string `json:"worker_id"`
 }

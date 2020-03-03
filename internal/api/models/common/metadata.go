@@ -6,15 +6,20 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/metadata"
 )
 
+// Holds data that allows for optimistic locking
 type Version struct {
 	SeqNum      uint64 `json:"seq_num"`
 	PrimaryTerm uint64 `json:"primary_term"`
 }
 
+// Metadata holds information about the data it's embedded in
 type Metadata struct {
-	CreatedAt  time.Time `json:"created_at" swaggertype:"string" format:"date-time"`
+	// When the data was created
+	CreatedAt time.Time `json:"created_at" swaggertype:"string" format:"date-time"`
+	// When the data was last modified
 	ModifiedAt time.Time `json:"modified_at" swaggertype:"string" format:"date-time"`
-	Version    Version   `json:"version"`
+	// Data versioning information
+	Version Version `json:"version"`
 }
 
 func FromDomainMetadata(m *metadata.Metadata) Metadata {
