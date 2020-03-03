@@ -2,6 +2,23 @@
 
 This is an example server-worker app.
 
+There are 2 main sets of components:
+
+1. Cipher App Server, Cipher ES DB, and Cipher Workers
+2. Tasques Server, Tasques ES DB, Kibana and APM
+
+(1) is the actual application logic and (2) is Tasks management.  
+
+<p align="center">
+  <img src="ciphers_demo.png"  alt="cipher demo diagram"/>
+</p>
+
+A User POSTs a plain text message to the Cipher App Server, which persists it into its DB and enqueues background Tasks
+to have the plain text message encoded into different forms (Rot13, Base64, etc) by making requests to the Tasques Server.
+
+Cipher Workers claim Tasks that they can handle by asking for Tasks in the `messages_and_ciphers`s queue, encoding into
+the right form as indicated by the Tasks, saving the encoded form to the Ciphers DB, and reporting each Task as done. 
+
 ### Setup
 
 If you don't have [Kubernetes](https://kubernetes.io) installed, install it.
