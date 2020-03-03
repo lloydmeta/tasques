@@ -111,7 +111,7 @@ type Task struct {
 	Attempted task.AttemptedTimes `json:"attempted" binding:"required"`
 	// The kind of Task; corresponds roughly with a function name
 	Kind task.Kind `json:"kind" binding:"required" example:"sayHello"`
-	// The state of a TAsk
+	// The state of a Task
 	State task.State `json:"state" binding:"required" swaggertype:"string" example:"queued"`
 	// The priority of this Task (higher means higher priority)
 	Priority task.Priority `json:"priority" binding:"required"`
