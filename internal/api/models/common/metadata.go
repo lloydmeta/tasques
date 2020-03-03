@@ -6,7 +6,7 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/metadata"
 )
 
-// Version holds data that allows for optimistic locking of data
+// Holds data that allows for optimistic locking
 type Version struct {
 	SeqNum      uint64 `json:"seq_num"`
 	PrimaryTerm uint64 `json:"primary_term"`
