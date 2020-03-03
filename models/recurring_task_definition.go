@@ -12,9 +12,9 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// TaskNewTask task new task
-// swagger:model task.NewTask
-type TaskNewTask struct {
+// RecurringTaskDefinition recurring task definition
+// swagger:model recurring.TaskDefinition
+type RecurringTaskDefinition struct {
 
 	// Arguments for this Task
 	Args interface{} `json:"args,omitempty"`
@@ -41,15 +41,10 @@ type TaskNewTask struct {
 	// The number of times that a Task will be retried if it fails
 	// If not passed, falls back to a server-side configured default
 	RetryTimes int64 `json:"retry_times,omitempty"`
-
-	// If defined, when this Task should run
-	// If not passed, falls back to now.
-	// Format: date-time
-	RunAt strfmt.DateTime `json:"run_at,omitempty"`
 }
 
-// Validate validates this task new task
-func (m *TaskNewTask) Validate(formats strfmt.Registry) error {
+// Validate validates this recurring task definition
+func (m *RecurringTaskDefinition) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateKind(formats); err != nil {
@@ -60,17 +55,13 @@ func (m *TaskNewTask) Validate(formats strfmt.Registry) error {
 		res = append(res, err)
 	}
 
-	if err := m.validateRunAt(formats); err != nil {
-		res = append(res, err)
-	}
-
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
 	return nil
 }
 
-func (m *TaskNewTask) validateKind(formats strfmt.Registry) error {
+func (m *RecurringTaskDefinition) validateKind(formats strfmt.Registry) error {
 
 	if err := validate.Required("kind", "body", m.Kind); err != nil {
 		return err
@@ -79,7 +70,7 @@ func (m *TaskNewTask) validateKind(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *TaskNewTask) validateQueue(formats strfmt.Registry) error {
+func (m *RecurringTaskDefinition) validateQueue(formats strfmt.Registry) error {
 
 	if err := validate.Required("queue", "body", m.Queue); err != nil {
 		return err
@@ -88,21 +79,8 @@ func (m *TaskNewTask) validateQueue(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *TaskNewTask) validateRunAt(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.RunAt) { // not required
-		return nil
-	}
-
-	if err := validate.FormatOf("run_at", "body", "date-time", m.RunAt.String(), formats); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // MarshalBinary interface implementation
-func (m *TaskNewTask) MarshalBinary() ([]byte, error) {
+func (m *RecurringTaskDefinition) MarshalBinary() ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
@@ -110,8 +88,8 @@ func (m *TaskNewTask) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary interface implementation
-func (m *TaskNewTask) UnmarshalBinary(b []byte) error {
-	var res TaskNewTask
+func (m *RecurringTaskDefinition) UnmarshalBinary(b []byte) error {
+	var res RecurringTaskDefinition
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

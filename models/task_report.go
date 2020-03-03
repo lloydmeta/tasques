@@ -16,12 +16,12 @@ import (
 // swagger:model task.Report
 type TaskReport struct {
 
-	// at
+	// When the report was filed
 	// Required: true
 	// Format: date-time
 	At *strfmt.DateTime `json:"at"`
 
-	// data
+	// Optional report data
 	Data interface{} `json:"data,omitempty"`
 }
 

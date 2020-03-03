@@ -11,6 +11,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 
+	"github.com/lloydmeta/tasques/client/recurring_tasks"
 	"github.com/lloydmeta/tasques/client/tasks"
 )
 
@@ -56,6 +57,7 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *Tasques {
 
 	cli := new(Tasques)
 	cli.Transport = transport
+	cli.RecurringTasks = recurring_tasks.New(transport, formats)
 	cli.Tasks = tasks.New(transport, formats)
 	return cli
 }
@@ -101,6 +103,8 @@ func (cfg *TransportConfig) WithSchemes(schemes []string) *TransportConfig {
 
 // Tasques is a client for tasques
 type Tasques struct {
+	RecurringTasks recurring_tasks.ClientService
+
 	Tasks tasks.ClientService
 
 	Transport runtime.ClientTransport
@@ -109,5 +113,6 @@ type Tasques struct {
 // SetTransport changes the transport on the client and all its subresources
 func (c *Tasques) SetTransport(transport runtime.ClientTransport) {
 	c.Transport = transport
+	c.RecurringTasks.SetTransport(transport)
 	c.Tasks.SetTransport(transport)
 }
