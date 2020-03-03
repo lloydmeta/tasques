@@ -14,22 +14,21 @@ Why use ES as a Tasks data store? It's horizontally scalable, highly-available, 
 - Easily scalable:
   - Servers are stateless; just spin more up as needed
   - The storage engine is Elasticsearch, nuff' said.
-- Tasks can be configured:
+- Tasks are configurable:
   - Priority
   - Schedule to run later
-  - Retries
-    - Tasks can be configured to retry X times, with exponential increase in run times
-- Recurring Tasks
-  - Tasks that are repeatedly enqueued at configurable intervals (cron format with basic macro support a la `@every 1m`)
-- Timeouts
-  - Tasks that are picked up by Workers that either don't report in or finish on time get timed out.
-- Unclaiming
-  - Tasks that were picked up but can't be handled now can be requeued without consequence.
+  - Retries with exponential increase in retry delays.
+- Recurring Tasks that are repeatedly enqueued at configurable intervals (cron format with basic macro support à la 
+  `@every 1m`)
+- Timeouts for Tasks that are picked up by Workers but either don't report in or finish on time.
+- Unclaiming allows Tasks that get picked up but can't be handled to be requeued without consequence.
 - API is exposed as Swagger; easily generate clients in any language:
   - Use the client to enqueue Tasks from your application
   - Workers are just a loop around the client, then your own business logic to do the actual work.
 - Pre-seeded Kibana Index Patterns and Dashboards for monitoring tasks.
 - Simple configuration: use a config file, optionally override with environment variables (12 factor-ready).
+- Application Performance monitoring: metrics are exported to [APM](https://www.elastic.co/apm) and available again from
+  Kibana (more below)
 
 ### Usage
 
