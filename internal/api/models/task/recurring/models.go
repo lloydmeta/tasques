@@ -40,7 +40,7 @@ type TaskDefinition struct {
 // by the schedule expression
 type NewTask struct {
 	// User-definable Id for the recurring Task. Must not collide with other existing ones.
-	ID task.RecurringTaskId `json:"id" binding:"required"`
+	ID task.RecurringTaskId `json:"id" binding:"required" example:"repeat-every-minute"`
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
 	// The Task to insert at intervals defined by ScheduleExpression
@@ -60,7 +60,7 @@ type TaskUpdate struct {
 // A persisted recurring TAsk
 type Task struct {
 	// User-defined Id for the recurring Task. Must not collide with other existing ones.
-	ID task.RecurringTaskId `json:"id" binding:"required"`
+	ID task.RecurringTaskId `json:"id" binding:"required" example:"repeat-every-minute"`
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
 	// The Task to insert at intervals defined by ScheduleExpression

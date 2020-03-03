@@ -36,6 +36,7 @@ definitions:
       id:
         description: User-definable Id for the recurring Task. Must not collide with
           other existing ones.
+        example: repeat-every-minute
         type: string
       schedule_expression:
         description: A schedule expression; can be any valid cron expression, with
@@ -56,6 +57,7 @@ definitions:
       id:
         description: User-defined Id for the recurring Task. Must not collide with
           other existing ones.
+        example: repeat-every-minute
         type: string
       loaded_at:
         description: |-
