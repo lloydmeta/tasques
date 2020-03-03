@@ -1,6 +1,10 @@
 ## Tasques [![Build Status](https://travis-ci.org/lloydmeta/tasques.svg?branch=master)](https://travis-ci.org/lloydmeta/tasques) [![codecov](https://codecov.io/gh/lloydmeta/tasques/branch/master/graph/badge.svg)](https://codecov.io/gh/lloydmeta/tasques) [![](https://images.microbadger.com/badges/commit/lloydmeta/tasques.svg)](https://microbadger.com/images/lloydmeta/tasques "tasques docker image details")
 
-Task queues backed by Elasticsearch (ES): Tasques.
+> Task queues backed by Elasticsearch (ES): Tasques 
+>
+> Pronounced: /tɑːsks/, like "tasks"
+> 
+> You know, for Background Tasks !
 
 Why use ES as a Tasks data store? It's horizontally scalable, highly-available, and offers a lot of built-in ways to manage your data
 (lifecycle management, snapshots, etc).
