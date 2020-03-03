@@ -16,72 +16,119 @@ import (
 // stored in the common package
 type Duration time.Duration
 
+// NewTask holds a description of a Task that is yet to be persisted
 type NewTask struct {
-	Queue             domainQueue.Name `json:"queue" binding:"required,queueName" example:"run-later"`
-	RetryTimes        *task.RetryTimes `json:"retry_times,omitempty" example:"10"`
-	Kind              task.Kind        `json:"kind" binding:"required" example:"sayHello"`
-	Priority          *task.Priority   `json:"priority,omitempty"`
-	ProcessingTimeout *Duration        `json:"processing_timeout,omitempty" swaggertype:"string" example:"30m"`
-	RunAt             *time.Time       `json:"run_at,omitempty" swaggertype:"string" format:"date-time"`
-	Args              *task.Args       `json:"args,omitempty" swaggertype:"object"`
-	Context           *task.Context    `json:"context,omitempty" swaggertype:"object"`
+	// The queue that a Task will be inserted into
+	Queue domainQueue.Name `json:"queue" binding:"required,queueName" example:"run-later"`
+	// The number of times that a Task will be retried if it fails
+	// If not passed, falls back to a server-side configured default
+	RetryTimes *task.RetryTimes `json:"retry_times,omitempty" example:"10"`
+	// The kind of Task; corresponds roughly with a function name
+	Kind task.Kind `json:"kind" binding:"required" example:"sayHello"`
+	// The priority of this Task (higher means higher priority)
+	// If not passed, defaults to zero (neutral)
+	Priority *task.Priority `json:"priority,omitempty"`
+	// How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server
+	// If not passed, falls back to a server-side configured default
+	ProcessingTimeout *Duration `json:"processing_timeout,omitempty" swaggertype:"string" example:"30m"`
+	// If defined, when this Task should run
+	// If not passed, falls back to now.
+	RunAt *time.Time `json:"run_at,omitempty" swaggertype:"string" format:"date-time"`
+	// Arguments for this Task
+	Args *task.Args `json:"args,omitempty" swaggertype:"object"`
+	// Context for this Task
+	Context *task.Context `json:"context,omitempty" swaggertype:"object"`
 }
 
 // A Report to be filed on a Job as sent in from the owning Worker
 type NewReport struct {
+	// Optional data for the report
 	Data *task.ReportedData `json:"data,omitempty"`
 }
 
 // A Report on a Job as sent in from the owning Worker
 type Report struct {
-	At   time.Time          `json:"at" binding:"required" swaggertype:"string" format:"date-time"`
+	// When the report was filed
+	At time.Time `json:"at" binding:"required" swaggertype:"string" format:"date-time"`
+	// Optional report data
 	Data *task.ReportedData `json:"data,omitempty" swaggertype:"object"`
 }
 
+// The Result of a Task being processed. Only one of Failure or Success will be present
 type Result struct {
+	// When the Result was produced
 	At time.Time `json:"at" binding:"required" swaggertype:"string" format:"date-time"`
-	// Results. Only one of the following will be filled in at a given time
+	// Failure
 	Failure *task.Failure `json:"failure,omitempty" swaggertype:"object"`
+	// Success
 	Success *task.Success `json:"success,omitempty" swaggertype:"object"`
 }
 
+// Represents a request to claim Tasks by single worker
 type Claim struct {
-	Queues   []domainQueue.Name `json:"queues,omitempty" binding:"required,dive,queueName" swaggertype:"array,string" example:"run-later,resize-images"`
-	Amount   *uint              `json:"amount,omitempty" example:"1"`
-	BlockFor *Duration          `json:"block_for,omitempty" swaggertype:"string" example:"1s"`
+	// The Task queues to claim from
+	Queues []domainQueue.Name `json:"queues,omitempty" binding:"required,dive,queueName" swaggertype:"array,string" example:"run-later,resize-images"`
+	// How many Tasks to try to claim
+	Amount *uint `json:"amount,omitempty" example:"1"`
+	// How long to block for before retrying, if the specified amount cannot be claimed.
+	// If not passed, falls back to a server-side configured default
+	BlockFor *Duration `json:"block_for,omitempty" swaggertype:"string" example:"1s"`
 }
 
+// Represents successful processing of a Task
 type Success struct {
 	Data *task.Success `json:"data,omitempty" swaggertype:"object"`
 }
 
+// Represents failed processing of a Task
 type Failure struct {
 	Data *task.Failure `json:"data,omitempty" swaggertype:"object"`
 }
 
+// Holds data about the last time a Task was claimed
 type LastClaimed struct {
-	WorkerId   worker.Id `json:"worker_id" swaggertype:"string" binding:"required"`
-	ClaimedAt  time.Time `json:"claimed_at" binding:"required" swaggertype:"string" format:"date-time"`
+	// Id belonging to a worker that claimed the Task
+	WorkerId worker.Id `json:"worker_id" swaggertype:"string" binding:"required"`
+	// When the claim was made
+	ClaimedAt time.Time `json:"claimed_at" binding:"required" swaggertype:"string" format:"date-time"`
+	// When the Task will be timed out if the worker doesn't finish or report back
 	TimesOutAt time.Time `json:"times_out_at" binding:"required" swaggertype:"string" format:"date-time"`
-	LastReport *Report   `json:"last_report,omitempty"`
-	Result     *Result   `json:"result,omitempty"`
+	// The LastReport filed by a worker holding a claim on the Task
+	LastReport *Report `json:"last_report,omitempty"`
+	// The processing Result
+	Result *Result `json:"result,omitempty"`
 }
 
+// A persisted Task
 type Task struct {
-	ID                task.Id             `json:"id" swaggertype:"string" binding:"required"`
-	Queue             domainQueue.Name    `json:"queue" binding:"required,queueName" example:"run-later"`
-	RetryTimes        task.RetryTimes     `json:"retry_times" binding:"required" example:"10"`
-	Attempted         task.AttemptedTimes `json:"attempted" binding:"required"`
-	Kind              task.Kind           `json:"kind" binding:"required" example:"sayHello"`
-	State             task.State          `json:"state" binding:"required" swaggertype:"string" example:"queued"`
-	Priority          task.Priority       `json:"priority" binding:"required"`
-	ProcessingTimeout Duration            `json:"processing_timeout" binding:"required" swaggertype:"string" example:"30m"`
-	RunAt             time.Time           `json:"run_at" binding:"required" swaggertype:"string" format:"date-time"`
-	Args              *task.Args          `json:"args,omitempty" swaggertype:"object"`
-	Context           *task.Context       `json:"context,omitempty" swaggertype:"object"`
-	LastClaimed       *LastClaimed        `json:"last_claimed,omitempty"`
-	LastEnqueuedAt    time.Time           `json:"last_enqueued_at" binding:"required" swaggertype:"string" format:"date-time"`
-	Metadata          common.Metadata     `json:"metadata" binding:"required"`
+	// Unique identifier of a Task
+	ID task.Id `json:"id" swaggertype:"string" binding:"required"`
+	// The queue the Task is in
+	Queue domainQueue.Name `json:"queue" binding:"required,queueName" example:"run-later"`
+	// The number of times that a Task will be retried if it fails
+	RetryTimes task.RetryTimes `json:"retry_times" binding:"required" example:"10"`
+	// The number of times a Task has been attempted
+	Attempted task.AttemptedTimes `json:"attempted" binding:"required"`
+	// The kind of Task; corresponds roughly with a function name
+	Kind task.Kind `json:"kind" binding:"required" example:"sayHello"`
+	// The state of a TAsk
+	State task.State `json:"state" binding:"required" swaggertype:"string" example:"queued"`
+	// The priority of this Task (higher means higher priority)
+	Priority task.Priority `json:"priority" binding:"required"`
+	// How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server
+	ProcessingTimeout Duration `json:"processing_timeout" binding:"required" swaggertype:"string" example:"30m"`
+	// When this Task should run
+	RunAt time.Time `json:"run_at" binding:"required" swaggertype:"string" format:"date-time"`
+	// Arguments for this Task
+	Args *task.Args `json:"args,omitempty" swaggertype:"object"`
+	// Context for this Task
+	Context *task.Context `json:"context,omitempty" swaggertype:"object"`
+	// Information on when this Task was last claimed by a worker
+	LastClaimed *LastClaimed `json:"last_claimed,omitempty"`
+	// When this Task was last enqueued
+	LastEnqueuedAt time.Time `json:"last_enqueued_at" binding:"required" swaggertype:"string" format:"date-time"`
+	// Metadata (data about data)
+	Metadata common.Metadata `json:"metadata" binding:"required"`
 	// Only populated if this is a Task that was spawned/enqueued by a Recurring Task definition
 	RecurringTaskId *task.RecurringTaskId `json:"recurring_task_id,omitempty" swaggertype:"string"`
 }

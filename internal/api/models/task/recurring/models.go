@@ -13,41 +13,63 @@ import (
 // stored in the common package
 type Duration time.Duration
 
-// The actual recurring task that gets inserted
+// The actual Task that gets enqueued
 type TaskDefinition struct {
-	Queue             queue.Name       `json:"queue" binding:"required,queueName" example:"run-later"`
-	RetryTimes        *task.RetryTimes `json:"retry_times,omitempty" example:"10"`
-	Kind              task.Kind        `json:"kind" binding:"required" example:"sayHello"`
-	Priority          *task.Priority   `json:"priority,omitempty"`
-	ProcessingTimeout *Duration        `json:"processing_timeout,omitempty" swaggertype:"string" example:"30m"`
-	Args              *task.Args       `json:"args,omitempty" swaggertype:"object"`
-	Context           *task.Context    `json:"context,omitempty" swaggertype:"object"`
+	// The queue that a Task will be inserted into
+	Queue queue.Name `json:"queue" binding:"required,queueName" example:"run-later"`
+	// The number of times that a Task will be retried if it fails
+	// If not passed, falls back to a server-side configured default
+	RetryTimes *task.RetryTimes `json:"retry_times,omitempty" example:"10"`
+	// The kind of Task; corresponds roughly with a function name
+	Kind task.Kind `json:"kind" binding:"required" example:"sayHello"`
+	// The priority of this Task (higher means higher priority)
+	// If not passed, defaults to zero (neutral)
+	Priority *task.Priority `json:"priority,omitempty"`
+	// How long a Worker has upon claiming this Task to finish or report back before it gets timed out by the Tasques server
+	// If not passed, falls back to a server-side configured default
+	ProcessingTimeout *Duration `json:"processing_timeout,omitempty" swaggertype:"string" example:"30m"`
+	// Arguments for this Task
+	Args *task.Args `json:"args,omitempty" swaggertype:"object"`
+	// Context for this Task
+	Context *task.Context `json:"context,omitempty" swaggertype:"object"`
 }
 
-// A Task that is yet to be persisted
-// We assume that the ScheduleExpression is valid
-// *before* we persist it
+// A recurring Task that is yet to be persisted.
+//
+// Once registered, a Task will be enqueued at intervals as speciried
+// by the schedule expression
 type NewTask struct {
+	// User-definable Id for the recurring Task. Must not collide with other existing ones.
 	ID task.RecurringTaskId `json:"id" binding:"required"`
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
-	TaskDefinition     TaskDefinition               `json:"task_definition" binding:"required"`
+	// The Task to insert at intervals defined by ScheduleExpression
+	TaskDefinition TaskDefinition `json:"task_definition" binding:"required"`
 }
 
 // Update definition for an existing Task
 type TaskUpdate struct {
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
+	// If not defined, reuses the existing one on the recurring Task
 	ScheduleExpression *recurring.ScheduleExpression `json:"schedule_expression,omitempty" binding:"omitempty,scheduleExpression" example:"@every 1m"`
-	TaskDefinition     *TaskDefinition               `json:"task_definition,omitempty"`
+	// The Task to insert at intervals defined by ScheduleExpression
+	// If not defined, reuses the existing one on the recurring Task
+	TaskDefinition *TaskDefinition `json:"task_definition,omitempty"`
 }
 
+// A persisted recurring TAsk
 type Task struct {
+	// User-defined Id for the recurring Task. Must not collide with other existing ones.
 	ID task.RecurringTaskId `json:"id" binding:"required"`
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
-	TaskDefinition     TaskDefinition               `json:"task_definition" binding:"required"`
-	LoadedAt           *time.Time                   `json:"loaded_at,omitempty"`
-	Metadata           common.Metadata              `json:"metadata" binding:"required"`
+	// The Task to insert at intervals defined by ScheduleExpression
+	TaskDefinition TaskDefinition `json:"task_definition" binding:"required"`
+	// When this recurring Task was last acknoledged and _loaded_ by a Tasques server for later
+	// automatic enqueueing
+	LoadedAt *time.Time `json:"loaded_at,omitempty"`
+	// Metadata (data about data)
+	Metadata common.Metadata `json:"metadata" binding:"required"`
 }
 
 // Converts an API model to the domain model
