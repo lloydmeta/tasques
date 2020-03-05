@@ -7,7 +7,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"github.com/lloydmeta/tasques/internal/config"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/index"
 	"github.com/lloydmeta/tasques/internal/infra/kibana/saved_objects"
@@ -18,19 +17,38 @@ var setupCmd = &cobra.Command{
 	Short: "Run tasques setup",
 	Long:  "Runs various setup routines for Tasques. Includes Index Templates, and Kibana saved objects (if configured)",
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.Background()
+		log.Info().Msg("Setting ILM")
+
+		esClient, err := common.NewClient(appConfig.Elasticsearch)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Could not setup Elasticsearch client")
+		}
+		log.Info().Msg("Setting up ILM")
+		ilmSetup := index.NewILMSetup(esClient, appConfig.LifeCycleSetup)
+		if err := ilmSetup.InstallPolicies(ctx); err != nil {
+			log.Fatal().Err(err).Msg("Could not install ILM policies")
+		}
+
+		// This needs to happen after ILM because templates refer to ILM policies
 		log.Info().Msg("Setting up Index templates")
-		templatesSetup, err := buildTemplatesSetup(appConfig.Elasticsearch)
+		templatesSetup := index.DefaultTemplateSetup(esClient, ilmSetup.ArchivedTemplateHook())
 		if err != nil {
 			log.Fatal().Err(err).Msg("Could not setup Template Setter Upper")
 		}
-		if err := templatesSetup.Run(context.Background()); err != nil {
+		if err := templatesSetup.Run(ctx); err != nil {
 			log.Fatal().Err(err).Msg("Failed to install index templates")
 		}
+
+		if err := ilmSetup.BootstrapIndices(ctx); err != nil {
+			log.Fatal().Err(err).Msg("Could not bootstrap indices for ILM")
+		}
+
 		if appConfig.KibanaClient != nil {
 			log.Info().Msg("Setting up Kibana saved objects")
 			httpClient := http.Client{}
 			importer := saved_objects.NewImporter(*appConfig.KibanaClient, &httpClient)
-			if err := importer.Run(context.Background()); err != nil {
+			if err := importer.Run(ctx); err != nil {
 				log.Fatal().Err(err).Msg("Failed to install Kibana saved objects")
 			}
 		}
@@ -40,14 +58,4 @@ var setupCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(setupCmd)
-}
-
-func buildTemplatesSetup(conf config.ElasticsearchClient) (*index.TemplatesSetup, error) {
-	esClient, err := common.NewClient(conf)
-	if err != nil {
-		return nil, err
-	} else {
-		setup := index.DefaultTemplateSetup(esClient)
-		return &setup, nil
-	}
 }
