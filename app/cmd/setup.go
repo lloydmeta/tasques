@@ -18,7 +18,6 @@ var setupCmd = &cobra.Command{
 	Long:  "Runs various setup routines for Tasques. Includes Index Templates, and Kibana saved objects (if configured)",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
-		log.Info().Msg("Setting ILM")
 
 		esClient, err := common.NewClient(appConfig.Elasticsearch)
 		if err != nil {
