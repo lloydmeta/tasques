@@ -25,6 +25,7 @@ Why use ES as a Tasks data store? It's horizontally scalable, highly-available, 
 - Recurring Tasks that are repeatedly enqueued at configurable intervals (cron format with basic macro support à la 
   `@every 1m`)
 - Timeouts for Tasks that are picked up by Workers but either don't report in or finish on time.
+- Archiving of completed Tasks (DONE or DEAD), also configurable
 - Unclaiming allows Tasks that get picked up but can't be handled to be requeued without consequence.
 - API is exposed as Swagger; easily generate clients in any language:
   - Use the client to enqueue Tasks from your application

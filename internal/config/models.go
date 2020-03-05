@@ -64,6 +64,13 @@ type TimedOutTasksReaper struct {
 	RunInterval time.Duration `json:"run_interval" mapstructure:"run_interval"`
 }
 
+type TasksArchiver struct {
+	ScrollSize       uint          `json:"scroll_size" mapstructure:"scroll_size"`
+	ScrollTtl        time.Duration `json:"scroll_ttl" mapstructure:"scroll_ttl"`
+	ArchiveOlderThan time.Duration `json:"archive_older_than" mapstructure:"archive_older_than"`
+	RunInterval      time.Duration `json:"run_interval" mapstructure:"run_interval"`
+}
+
 type RecurringTasks struct {
 	ScrollSize             uint          `json:"scroll_size" mapstructure:"scroll_size"`
 	ScrollTtl              time.Duration `json:"scroll_ttl" mapstructure:"scroll_ttl"`
@@ -83,6 +90,7 @@ type BasicAuthUser struct {
 type Recurring struct {
 	LeaderLock          LeaderLock          `json:"leader_lock" mapstructure:"leader_lock"`
 	TimedOutTasksReaper TimedOutTasksReaper `json:"timed_out_tasks_reaper" mapstructure:"timed_out_tasks_reaper"`
+	TasksArchiver       TasksArchiver       `json:"tasks_archiver" mapstructure:"tasks_archiver"`
 	RecurringTasks      RecurringTasks      `json:"recurring_tasks" mapstructure:"recurring_tasks"`
 }
 

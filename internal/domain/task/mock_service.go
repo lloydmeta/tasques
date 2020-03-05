@@ -14,22 +14,24 @@ var MockDomainTask = Task{
 }
 
 type MockTasksService struct {
-	CreateCalled         uint
-	CreateOverride       func() (*Task, error)
-	GetCalled            uint
-	GetOverride          func() (*Task, error)
-	ClaimCalled          uint
-	ClaimOverride        func() ([]Task, error)
-	ReportInCalled       uint
-	ReportInOverride     func() (*Task, error)
-	MarkDoneCalled       uint
-	MarkDoneOverride     func() (*Task, error)
-	MarkFailedCalled     uint
-	MarkFailedOverride   func() (*Task, error)
-	UnClaimCalled        uint
-	UnClaimOverride      func() (*Task, error)
-	ReapTimedOutCalled   uint
-	ReapTimedOutOverride func() error
+	CreateCalled            uint
+	CreateOverride          func() (*Task, error)
+	GetCalled               uint
+	GetOverride             func() (*Task, error)
+	ClaimCalled             uint
+	ClaimOverride           func() ([]Task, error)
+	ReportInCalled          uint
+	ReportInOverride        func() (*Task, error)
+	MarkDoneCalled          uint
+	MarkDoneOverride        func() (*Task, error)
+	MarkFailedCalled        uint
+	MarkFailedOverride      func() (*Task, error)
+	UnClaimCalled           uint
+	UnClaimOverride         func() (*Task, error)
+	ReapTimedOutCalled      uint
+	ReapTimedOutOverride    func() error
+	ArchiveOldTasksCalled   uint
+	ArchiveOldTasksOverride func() error
 }
 
 func (m *MockTasksService) Create(ctx context.Context, task *NewTask) (*Task, error) {
@@ -99,6 +101,15 @@ func (m *MockTasksService) ReapTimedOutTasks(ctx context.Context, scrollSize uin
 	m.ReapTimedOutCalled++
 	if m.ReapTimedOutOverride != nil {
 		return m.ReapTimedOutOverride()
+	} else {
+		return nil
+	}
+}
+
+func (m *MockTasksService) ArchiveOldTasks(ctx context.Context, archiveCompletedBefore CompletedAt, scrollSize uint, scrollTtl time.Duration) error {
+	m.ArchiveOldTasksCalled++
+	if m.ArchiveOldTasksOverride != nil {
+		return m.ArchiveOldTasksOverride()
 	} else {
 		return nil
 	}

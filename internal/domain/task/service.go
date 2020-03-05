@@ -66,7 +66,14 @@ type Service interface {
 	UnClaim(ctx context.Context, workerId worker.Id, queue queue.Name, taskId Id) (*Task, error)
 
 	// This sets all Claimed Tasks that have timed out to Failed, adjusting RunAt as needed
+	//
+	// Note that this method is meant to be idempotent, so errors can be ignored or handled by simply logging
 	ReapTimedOutTasks(ctx context.Context, scrollSize uint, scrollTtl time.Duration) error
+
+	// This sets all Claimed Tasks that have timed out to Failed
+	//
+	// Note that this method is meant to be idempotent, so errors can be ignored or handled by simply logging
+	ArchiveOldTasks(ctx context.Context, archiveCompletedBefore CompletedAt, scrollSize uint, scrollTtl time.Duration) error
 }
 
 // <-- Domain Errors
