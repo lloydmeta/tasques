@@ -17,6 +17,7 @@ import (
 	"github.com/lloydmeta/tasques/internal/domain/queue"
 	"github.com/lloydmeta/tasques/internal/domain/task"
 	"github.com/lloydmeta/tasques/internal/domain/worker"
+	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 	task2 "github.com/lloydmeta/tasques/internal/infra/elasticsearch/task"
 )
 
@@ -376,7 +377,7 @@ func Test_esTaskService_Claim(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				_ = seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
+				_ = seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
 			}
 
 			claimed, err := service.Claim(ctx, tt.args.workerId, tt.args.queuesToClaimFrom, tt.args.numberToClaim, blockFor)
@@ -409,7 +410,7 @@ func Test_esTaskService_Claim_with_parallel_completing_claimers(t *testing.T) {
 
 	queueName := queue.Name("competing_parallel_claimers")
 
-	seededTasks := seedTasks(t, service, tasksToSeed, queueName)
+	seededTasks := seedTasks(t, service, tasksToSeed, queueName, 10)
 	assert.Len(t, seededTasks, tasksToSeed)
 
 	var waitGroup sync.WaitGroup
@@ -576,7 +577,7 @@ func Test_esTaskService_ReportIn(t *testing.T) {
 			var seeded []task.Task
 			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
+				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
 				seeded = append(seeded, created...)
 
 			}
@@ -741,7 +742,7 @@ func Test_esTaskService_MarkDone(t *testing.T) {
 			var seeded []task.Task
 			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
+				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
 				seeded = append(seeded, created...)
 			}
 
@@ -905,7 +906,7 @@ func Test_esTaskService_MarkFailed(t *testing.T) {
 			var seeded []task.Task
 			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
+				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
 				seeded = append(seeded, created...)
 			}
 
@@ -1069,7 +1070,7 @@ func Test_esTaskService_UnClaim(t *testing.T) {
 			var seeded []task.Task
 			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed)
+				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
 				seeded = append(seeded, created...)
 			}
 
@@ -1115,7 +1116,7 @@ func Test_esTaskService_FailTimedOutTasks(t *testing.T) {
 	service := buildTasksService()
 
 	queueToSeed := queue.Name("claimed-tasks-to-expire")
-	seededClaimedTasks := seedClaimedTasks(t, service, 100, queueToSeed)
+	seededClaimedTasks := seedClaimedTasks(t, service, 100, queueToSeed, 10)
 	assert.True(t, len(seededClaimedTasks) > 0)
 
 	// Not yet expired
@@ -1154,15 +1155,82 @@ func Test_esTaskService_FailTimedOutTasks(t *testing.T) {
 
 }
 
+func Test_esTaskService_ArchiveOldTasks(t *testing.T) {
+	service := buildTasksService()
+
+	queueToSeed := queue.Name("claimed-tasks-to-expire")
+	seededClaimedTasks := seedClaimedTasks(t, service, 100, queueToSeed, 0)
+	assert.True(t, len(seededClaimedTasks) > 0)
+
+	seededDoneTasks := make([]task.Task, 0, len(seededClaimedTasks))
+	for i, seeded := range seededClaimedTasks {
+		if i%2 == 0 {
+			_, err := service.MarkFailed(ctx, workerId, seeded.Queue, seeded.ID, nil)
+			if err != nil {
+				t.Error(err)
+			}
+		} else {
+			_, err := service.MarkDone(ctx, workerId, seeded.Queue, seeded.ID, nil)
+			if err != nil {
+				t.Error(err)
+			}
+		}
+		retrieved, err := service.Get(ctx, seeded.Queue, seeded.ID)
+		if err != nil {
+			t.Error(err)
+		}
+		if i%2 == 0 {
+			assert.EqualValues(t, task.DEAD, retrieved.State)
+		} else {
+			assert.EqualValues(t, task.DONE, retrieved.State)
+		}
+		seededDoneTasks = append(seededDoneTasks, *retrieved)
+	}
+
+	assert.Eventually(t, func() bool {
+		seededTasks := seededDoneTasks
+		if err := service.ArchiveOldTasks(ctx, task.CompletedAt(time.Now().UTC()), 500, 1*time.Minute); err != nil {
+			return false
+		}
+		ok := true
+
+		for _, seeded := range seededTasks {
+			_, err := service.Get(ctx, seeded.Queue, seeded.ID)
+			_, notFound := err.(task.NotFound)
+			ok = ok && notFound
+
+			archived, err := getArchivedTask(seeded.ID)
+			if err == nil {
+				expected := task2.ToPersistedArchivedTask(&seeded)
+				assert.EqualValues(t, &expected, archived)
+			} else {
+				ok = false
+			}
+		}
+		return ok
+	}, 120*time.Second, 500*time.Millisecond, "The Tasks we completed should now be archived.")
+
+	persistedArchived, err := listArchivedTasks()
+	if err != nil {
+		t.Error(err)
+	}
+	for _, archived := range persistedArchived {
+		if archived.Source.State != task.DEAD && archived.Source.State != task.DONE {
+			t.Errorf("Task was not Dead or Done [%v]", archived)
+		}
+	}
+
+}
+
 var seededProcessingTimeout = 15 * time.Minute
 
-func seedTasks(t *testing.T, service task.Service, numberToSeed int, queue queue.Name) []task.Task {
+func seedTasks(t *testing.T, service task.Service, numberToSeed int, queue queue.Name, retryTimes task.RetryTimes) []task.Task {
 	runAt := task.RunAt(time.Now().UTC())
 	var createdTasks []task.Task
 
 	toCreate := task.NewTask{
 		Queue:             queue,
-		RetryTimes:        10,
+		RetryTimes:        retryTimes,
 		Priority:          10,
 		ProcessingTimeout: task.ProcessingTimeout(seededProcessingTimeout),
 		Kind:              task.Kind("justATest"),
@@ -1180,11 +1248,13 @@ func seedTasks(t *testing.T, service task.Service, numberToSeed int, queue queue
 	return createdTasks
 }
 
-func seedClaimedTasks(t *testing.T, service task.Service, numberToSeed int, queueName queue.Name) []task.Task {
-	created := seedTasks(t, service, numberToSeed, queueName)
+var workerId = worker.Id("werk")
+
+func seedClaimedTasks(t *testing.T, service task.Service, numberToSeed int, queueName queue.Name, retryTimes task.RetryTimes) []task.Task {
+	created := seedTasks(t, service, numberToSeed, queueName, retryTimes)
 	var claimed []task.Task
 	for len(claimed) != len(created) {
-		r, err := service.Claim(ctx, "werk", []queue.Name{queueName}, uint(len(created)), 5*time.Second)
+		r, err := service.Claim(ctx, workerId, []queue.Name{queueName}, uint(len(created)), 5*time.Second)
 		if err != nil {
 			t.Error(err)
 		}
@@ -1204,4 +1274,75 @@ func setTasksServiceClock(t *testing.T, service task.Service, frozenTime time.Ti
 		return frozenTime
 	})
 
+}
+
+type esHitPersistedArchivedTask struct {
+	ID          string                          `json:"_id"`
+	Index       string                          `json:"_index"`
+	SeqNum      uint64                          `json:"_seq_no"`
+	PrimaryTerm uint64                          `json:"_primary_term"`
+	Source      task2.PersistedArchivedTaskData `json:"_source"`
+}
+
+func getArchivedTask(id task.Id) (*task2.PersistedArchivedTaskData, error) {
+	searchReq := esapi.GetRequest{
+		Index:      task2.TasquesArchiveIndex,
+		DocumentID: string(id),
+	}
+	rawResp, err := searchReq.Do(ctx, esClient)
+	if err != nil {
+		return nil, common.ElasticsearchErr{Underlying: err}
+	}
+	defer rawResp.Body.Close()
+
+	switch rawResp.StatusCode {
+	case 200:
+		var response esHitPersistedArchivedTask
+		if err := json.NewDecoder(rawResp.Body).Decode(&response); err != nil {
+			return nil, common.JsonSerdesErr{Underlying: []error{err}}
+		}
+		return &response.Source, nil
+	case 404:
+		return nil, fmt.Errorf("not found")
+	default:
+		return nil, common.UnexpectedEsStatusError(rawResp)
+	}
+}
+
+func listArchivedTasks() ([]esHitPersistedArchivedTask, error) {
+	refreshReq := esapi.IndicesRefreshRequest{Index: []string{task2.TasquesArchiveIndex}}
+	rawResp1, err := refreshReq.Do(ctx, esClient)
+	if err != nil {
+		return nil, common.ElasticsearchErr{Underlying: err}
+	}
+	defer rawResp1.Body.Close()
+
+	searchReq := esapi.SearchRequest{
+		Index: []string{task2.TasquesArchiveIndex},
+		Size:  esapi.IntPtr(500),
+	}
+	rawResp, err := searchReq.Do(ctx, esClient)
+	if err != nil {
+		return nil, common.ElasticsearchErr{Underlying: err}
+	}
+	defer rawResp.Body.Close()
+
+	switch rawResp.StatusCode {
+	case 200:
+		var response esArchivedSearchResponse
+		if err := json.NewDecoder(rawResp.Body).Decode(&response); err != nil {
+			return nil, common.JsonSerdesErr{Underlying: []error{err}}
+		}
+		return response.Hits.Hits, nil
+	case 404:
+		return nil, fmt.Errorf("not found")
+	default:
+		return nil, common.UnexpectedEsStatusError(rawResp)
+	}
+}
+
+type esArchivedSearchResponse struct {
+	Hits struct {
+		Hits []esHitPersistedArchivedTask `json:"hits"`
+	} `json:"hits"`
 }

@@ -21,6 +21,7 @@ import (
 )
 
 var TasquesQueuePrefix = ".tasques_queue-"
+var TasquesArchiveIndex = ".tasques_archive"
 
 type EsService struct {
 	client   *elasticsearch.Client
@@ -112,7 +113,7 @@ func (e *EsService) Get(ctx context.Context, queue queue.Name, taskId task.Id) (
 		if err := json.NewDecoder(rawResp.Body).Decode(&response); err != nil {
 			return nil, common.JsonSerdesErr{Underlying: []error{err}}
 		}
-		retrieved := response.toDomainTask()
+		retrieved := response.ToDomainTask()
 		return &retrieved, nil
 	case 404:
 		return nil, task.NotFound{ID: taskId, QueueName: queue}
@@ -212,6 +213,7 @@ func (e *EsService) ReapTimedOutTasks(ctx context.Context, scrollSize uint, scro
 	now := e.getUTC()
 	searchBody := buildTimedOutSearchBody(now, scrollSize)
 	return e.scanTasks(ctx, searchBody, scrollTtl, func(timedOutTasks []task.Task) error {
+
 		log.Info().Int("timed_out_tasks_count", len(timedOutTasks)).Msg("Timed out tasks in batch")
 		aboutToTimeOut := make([]task.Task, 0, len(timedOutTasks))
 		for _, t := range timedOutTasks {
@@ -227,6 +229,30 @@ func (e *EsService) ReapTimedOutTasks(ctx context.Context, scrollSize uint, scro
 
 		log.Info().Msg("Sending bulk request to time out the batch")
 		if _, err := e.bulkUpdateTasks(ctx, aboutToTimeOut); err != nil {
+			return err
+		} else {
+			log.Info().Msg("Bulk timeout request sent and acked")
+			return nil
+		}
+	})
+}
+
+func (e *EsService) ArchiveOldTasks(ctx context.Context, archiveCompletedBefore task.CompletedAt, scrollSize uint, scrollTtl time.Duration) error {
+	if log.Debug().Enabled() {
+		log.Debug().
+			Time("archive_completed_before", time.Time(archiveCompletedBefore)).
+			Msg("Looking for tasks completed before")
+	}
+	searchBody := buildArchivableSearchBody(time.Time(archiveCompletedBefore), scrollSize)
+	return e.scanTasks(ctx, searchBody, scrollTtl, func(archivableTasks []task.Task) error {
+		if log.Debug().Enabled() {
+			log.Debug().
+				Interface("archivable_tasks", archivableTasks).
+				Msg("Archivable Tasks in batch")
+		}
+		log.Info().Int("archivable_tasks_count", len(archivableTasks)).Msg("Archivable Tasks in batch")
+		log.Info().Msg("Sending bulk request to archive the batch")
+		if _, err := e.bulkArchiveTasks(ctx, archivableTasks); err != nil {
 			return err
 		} else {
 			log.Info().Msg("Bulk timeout request sent and acked")
@@ -313,7 +339,7 @@ func processScrollResp(rawResp *esapi.Response) (*tasksWithScrollId, error) {
 		}
 		tasks := make([]task.Task, 0, len(scrollResp.Hits.Hits))
 		for _, pTask := range scrollResp.Hits.Hits {
-			tasks = append(tasks, pTask.toDomainTask())
+			tasks = append(tasks, pTask.ToDomainTask())
 		}
 		return &tasksWithScrollId{
 			ScrollId: scrollResp.ScrollId,
@@ -513,7 +539,7 @@ func (e *EsService) searchForClaimables(ctx context.Context, queues []queue.Name
 		}
 		tasks := make([]task.Task, 0, len(searchResp.Hits.Hits))
 		for _, pTask := range searchResp.Hits.Hits {
-			tasks = append(tasks, pTask.toDomainTask())
+			tasks = append(tasks, pTask.ToDomainTask())
 		}
 		return tasks, nil
 	case 404:
@@ -563,8 +589,21 @@ func (e *EsService) bulkUpdateTasks(ctx context.Context, tasks []task.Task) (*co
 	bulkReqBody, err := buildTasksBulkUpdateNdJsonBytes(tasks)
 	if err != nil {
 		return nil, err
+	} else {
+		return e.sendBulk(ctx, bulkReqBody)
 	}
-	// Send the BulkRequest
+}
+
+func (e *EsService) bulkArchiveTasks(ctx context.Context, tasks []task.Task) (*common.EsBulkResponse, error) {
+	bulkReqBody, err := buildTasksBulkArchiveNdJsonBytes(tasks)
+	if err != nil {
+		return nil, err
+	} else {
+		return e.sendBulk(ctx, bulkReqBody)
+	}
+}
+
+func (e *EsService) sendBulk(ctx context.Context, bulkReqBody []byte) (*common.EsBulkResponse, error) {
 	claimBulkReq := esapi.BulkRequest{
 		Body: bytes.NewReader(bulkReqBody),
 	}
@@ -641,6 +680,43 @@ func buildTasksBulkUpdateNdJsonBytes(task []task.Task) ([]byte, error) {
 	}
 }
 
+func buildTasksBulkArchiveNdJsonBytes(task []task.Task) ([]byte, error) {
+	var errAcc []error
+	var bytesAcc []byte
+	for _, t := range task {
+		archival := buildTaskArchival(&t)
+		deleteOpBytes, err := json.Marshal(archival.deleteOp)
+		if err != nil {
+			errAcc = append(errAcc, err)
+		}
+		if len(errAcc) == 0 {
+			bytesAcc = append(bytesAcc, deleteOpBytes...)
+			bytesAcc = append(bytesAcc, "\n"...)
+		}
+		archiveOpBytes, err := json.Marshal(archival.insertArchiveTaskOp.op)
+		if err != nil {
+			errAcc = append(errAcc, err)
+		}
+		if len(errAcc) == 0 {
+			bytesAcc = append(bytesAcc, archiveOpBytes...)
+			bytesAcc = append(bytesAcc, "\n"...)
+		}
+		dataBytes, err := json.Marshal(archival.insertArchiveTaskOp.doc)
+		if err != nil {
+			errAcc = append(errAcc, err)
+		}
+		if len(errAcc) == 0 {
+			bytesAcc = append(bytesAcc, dataBytes...)
+			bytesAcc = append(bytesAcc, "\n"...)
+		}
+	}
+	if len(errAcc) != 0 {
+		return nil, common.JsonSerdesErr{Underlying: errAcc}
+	} else {
+		return bytesAcc, nil
+	}
+}
+
 func buildUpdateBulkOp(task *task.Task) updateTaskBulkOpPair {
 	return updateTaskBulkOpPair{
 		op: updateTaskBulkPairOp{
@@ -655,10 +731,52 @@ func buildUpdateBulkOp(task *task.Task) updateTaskBulkOpPair {
 	}
 }
 
+func buildTaskArchival(t *task.Task) bulkTaskArchival {
+	return bulkTaskArchival{
+		deleteOp: deleteBulkOp{
+			Delete: deleteBulkOpData{
+				Id:            string(t.ID),
+				Index:         string(BuildIndexName(t.Queue)),
+				IfSeqNo:       uint64(t.Metadata.Version.SeqNum),
+				IfPrimaryTerm: uint64(t.Metadata.Version.PrimaryTerm),
+			},
+		},
+		insertArchiveTaskOp: insertArchivedTaskOpPair{
+			op: insertArchivedTaskOp{
+				Index: insertArchivedTaskOpData{
+					Id:    string(t.ID),
+					Index: TasquesArchiveIndex,
+				},
+			},
+			doc: ToPersistedArchivedTask(t),
+		},
+	}
+}
+
 // Private persistence doc structures based entirely on basic types for ease of guaranteeing serdes.
 
 type persistedTaskData struct {
 	RetryTimes uint `json:"retry_times"`
+	// This doesn't map to the domain model 1:1 because storing _attempts_ instead of retires
+	// allows us to not need to adjust the counts for timeouts, and instead issue a simple update-by-query
+	RemainingAttempts uint                     `json:"remaining_attempts"`
+	Kind              string                   `json:"kind"`
+	State             task.State               `json:"state"`
+	RunAt             time.Time                `json:"run_at"`
+	ProcessingTimeout time.Duration            `json:"processing_timeout"`
+	Priority          int                      `json:"priority"`
+	Args              *jsonObjMap              `json:"args,omitempty"`
+	Context           *jsonObjMap              `json:"context,omitempty"`
+	LastEnqueuedAt    time.Time                `json:"last_enqueued_at"`
+	LastClaimed       *persistedLastClaimed    `json:"last_claimed,omitempty"`
+	Metadata          common.PersistedMetadata `json:"metadata"`
+	RecurringTaskId   *string                  `json:"recurring_task_id,omitempty"`
+}
+
+type PersistedArchivedTaskData struct {
+	// We don't store archived Tasks in their own queues
+	Queue      string `json:"queue"`
+	RetryTimes uint   `json:"retry_times"`
 	// This doesn't map to the domain model 1:1 because storing _attempts_ instead of retires
 	// allows us to not need to adjust the counts for timeouts, and instead issue a simple update-by-query
 	RemainingAttempts uint                     `json:"remaining_attempts"`
@@ -745,7 +863,7 @@ func (pTask *persistedTaskData) toDomainTask(taskId task.Id, queue queue.Name, v
 	}
 }
 
-func (resp *esHitPersistedTask) toDomainTask() task.Task {
+func (resp *esHitPersistedTask) ToDomainTask() task.Task {
 	pTask := resp.Source
 
 	return pTask.toDomainTask(task.Id(resp.ID), queueNameFromIndexName(common.IndexName(resp.Index)), metadata.Version{
@@ -800,6 +918,26 @@ func toPersistedTask(task *task.Task) persistedTaskData {
 			ModifiedAt: time.Time(task.Metadata.ModifiedAt),
 		},
 		RecurringTaskId: (*string)(task.RecurringTaskId),
+	}
+}
+
+func ToPersistedArchivedTask(t *task.Task) PersistedArchivedTaskData {
+	normalPersistedTask := toPersistedTask(t)
+	return PersistedArchivedTaskData{
+		Queue:             string(t.Queue),
+		RetryTimes:        normalPersistedTask.RetryTimes,
+		RemainingAttempts: normalPersistedTask.RemainingAttempts,
+		Kind:              normalPersistedTask.Kind,
+		State:             normalPersistedTask.State,
+		RunAt:             normalPersistedTask.RunAt,
+		ProcessingTimeout: normalPersistedTask.ProcessingTimeout,
+		Priority:          normalPersistedTask.Priority,
+		Args:              normalPersistedTask.Args,
+		Context:           normalPersistedTask.Context,
+		LastEnqueuedAt:    normalPersistedTask.LastEnqueuedAt,
+		LastClaimed:       normalPersistedTask.LastClaimed,
+		Metadata:          normalPersistedTask.Metadata,
+		RecurringTaskId:   normalPersistedTask.RecurringTaskId,
 	}
 }
 
@@ -899,6 +1037,36 @@ type updateTaskBulkPairOpData struct {
 	IfPrimaryTerm uint64 `json:"if_primary_term"`
 }
 
+type bulkTaskArchival struct {
+	deleteOp            deleteBulkOp
+	insertArchiveTaskOp insertArchivedTaskOpPair
+}
+
+type deleteBulkOp struct {
+	Delete deleteBulkOpData `json:"delete"`
+}
+
+type deleteBulkOpData struct {
+	Id            string `json:"_id"`
+	Index         string `json:"_index"`
+	IfSeqNo       uint64 `json:"if_seq_no"`
+	IfPrimaryTerm uint64 `json:"if_primary_term"`
+}
+
+type insertArchivedTaskOpPair struct {
+	op  insertArchivedTaskOp
+	doc PersistedArchivedTaskData
+}
+
+type insertArchivedTaskOp struct {
+	Index insertArchivedTaskOpData `json:"index"`
+}
+
+type insertArchivedTaskOpData struct {
+	Id    string `json:"_id"`
+	Index string `json:"_index"`
+}
+
 type tasksWithScrollId struct {
 	ScrollId string
 	Tasks    []task.Task
@@ -936,6 +1104,62 @@ func buildTimedOutSearchBody(nowUtc time.Time, pageSize uint) jsonObjMap {
 							}, {
 								"term": jsonObjMap{
 									"state": task.CLAIMED.String(), // just CLAIMED
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildArchivableSearchBody(archiveFinishedBefore time.Time, pageSize uint) jsonObjMap {
+	return jsonObjMap{
+		"size":                pageSize,
+		"seq_no_primary_term": true,
+		"sort": []jsonObjMap{
+			{
+				"last_claimed.result.at": jsonObjMap{
+					"order": "asc",
+				},
+			},
+			{
+				"run_at": jsonObjMap{
+					"order": "asc",
+				},
+			},
+			{
+				"metadata.created_at": jsonObjMap{
+					"order": "asc",
+				},
+			},
+		},
+		"query": jsonObjMap{
+			"bool": jsonObjMap{
+				"filter": jsonObjMap{
+					"bool": jsonObjMap{
+						"must": []jsonObjMap{
+							{
+								"range": jsonObjMap{
+									"last_claimed.result.at": jsonObjMap{
+										"lte": archiveFinishedBefore.Format(time.RFC3339Nano),
+									},
+								},
+							}, {
+								"bool": jsonObjMap{
+									"should": []jsonObjMap{
+										{
+											"term": jsonObjMap{
+												"state": task.DONE.String(),
+											},
+										},
+										{
+											"term": jsonObjMap{
+												"state": task.DEAD.String(),
+											},
+										},
+									},
 								},
 							},
 						},

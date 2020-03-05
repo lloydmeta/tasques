@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"go.elastic.co/apm/module/apmgin"
@@ -181,16 +182,20 @@ func buildRecurringRunner(
 		// This task is not *strictly* required, because we can always do some form of clever querying like
 		// filtering for FAILED + timedout + remaining attempts > 0 when claiming tasks, but IMHO the data
 		// the actual state is easier to understand, and leads to more readable and maintainable code
-		leader.NewInternalRecurringFunction(
-			"timed-out-task-runner",
+		buildWhenLeaderFunction(
+			"time-out-tasks-runner",
 			conf.TimedOutTasksReaper.RunInterval,
-			func(ctx context.Context, isLeader leader.Checker) error {
-				if isLeader.IsLeader() {
-					return tasksService.ReapTimedOutTasks(ctx, conf.TimedOutTasksReaper.ScrollSize, conf.TimedOutTasksReaper.ScrollTtl)
-				} else {
-					log.Debug().Msg("Task reaper skipped because we don't have the lock.")
-					return nil
-				}
+			func(ctx context.Context) error {
+				return tasksService.ReapTimedOutTasks(ctx, conf.TimedOutTasksReaper.ScrollSize, conf.TimedOutTasksReaper.ScrollTtl)
+			},
+		),
+		buildWhenLeaderFunction(
+			"archive-tasks-runner",
+			conf.TasksArchiver.RunInterval,
+			func(ctx context.Context) error {
+				now := time.Now().UTC()
+				archiveOlderThan := task.CompletedAt(now.Add(-conf.TasksArchiver.ArchiveOlderThan))
+				return tasksService.ArchiveOldTasks(ctx, archiveOlderThan, conf.TasksArchiver.ScrollSize, conf.TasksArchiver.ScrollTtl)
 			},
 		),
 		leader.NewInternalRecurringFunction(
@@ -206,4 +211,23 @@ func buildRecurringRunner(
 	}
 
 	return leader.NewInternalRecurringFunctionRunner(recurringFunctions, tracer, leaderLock)
+}
+
+func buildWhenLeaderFunction(
+	name string,
+	runInterval time.Duration,
+	runFunc func(context.Context) error,
+) leader.InternalRecurringFunction {
+	return leader.NewInternalRecurringFunction(
+		name,
+		runInterval,
+		func(ctx context.Context, isLeader leader.Checker) error {
+			if isLeader.IsLeader() {
+				return runFunc(ctx)
+			} else {
+				log.Debug().Msgf("%s skipped because we don't have the lock.", name)
+				return nil
+			}
+		},
+	)
 }

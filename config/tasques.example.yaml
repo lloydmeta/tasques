@@ -70,6 +70,16 @@ tasques:
         scroll_size: 300
         # How long the scroll should last
         scroll_ttl: 1m
+      # Settings for archiving Tasks that are completed (dead or done state)
+      tasks_archiver:
+        # How long to wait between runs
+        run_interval: 1m
+        # How long after a Task has been completed to consider it an archive candidate
+        archive_older_than: 24h
+        # ES search scroll size for finding expired tasks
+        scroll_size: 300
+        # How long the scroll should last
+        scroll_ttl: 1m
       recurring_tasks:
         # How long to wait between sync runs; should be higher than leader lock check interval
         #
