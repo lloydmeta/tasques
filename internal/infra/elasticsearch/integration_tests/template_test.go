@@ -8,11 +8,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/lloydmeta/tasques/internal/config"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/index"
 )
 
 func Test_DefaultTemplatesSetup_Run(t *testing.T) {
-	subject := index.DefaultTemplateSetup(esClient)
+	ilmSetup := index.NewILMSetup(esClient, lifecycleSetupSettings)
+	subject := index.DefaultTemplateSetup(esClient, ilmSetup.ArchivedTemplateHook())
 
 	err := subject.Run(context.Background())
 	assert.NoError(t, err)
@@ -20,4 +22,10 @@ func Test_DefaultTemplatesSetup_Run(t *testing.T) {
 	err = subject.Check(context.Background())
 	assert.NoError(t, err)
 
+}
+
+var lifecycleSetupSettings = config.LifeCycleSetup{
+	ArchivedTasks: config.LifeCycleSettings{
+		Enabled: true,
+	},
 }

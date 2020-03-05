@@ -19,11 +19,13 @@ type TemplateName string
 type Pattern = string
 type Json = map[string]interface{}
 type Mappings = map[string]interface{}
+type Settings = map[string]interface{}
 
 // Template defines a template to be applied when setup is run
 type Template struct {
 	name     TemplateName // ignored when serialising because the name doesn't start with a capital
 	Patterns []Pattern    `json:"index_patterns"`
+	Settings Settings     `json:"settings,omitempty"`
 	Mappings Mappings     `json:"mappings,omitempty"`
 }
 
@@ -43,7 +45,8 @@ type TemplatesSetup struct {
 }
 
 // Returns the default Template setter upper
-func DefaultTemplateSetup(esClient *elasticsearch.Client) TemplatesSetup {
+func DefaultTemplateSetup(esClient *elasticsearch.Client, archiveTemplateModifier func(*Template)) TemplatesSetup {
+	archiveTemplateModifier(&TasquesArchiveTemplate)
 	return TemplatesSetup{
 		esClient: esClient,
 		Templates: []Template{
@@ -81,7 +84,7 @@ func (s *TemplatesSetup) Check(ctx context.Context) error {
 
 	indexTemplatesGetReq := esapi.IndicesGetTemplateRequest{Name: indexTemplateNames}
 
-	rawResp, err := indexTemplatesGetReq.Do(context.Background(), s.esClient)
+	rawResp, err := indexTemplatesGetReq.Do(ctx, s.esClient)
 	if err != nil {
 		return common.ElasticsearchErr{Underlying: err}
 	}

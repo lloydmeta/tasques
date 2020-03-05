@@ -1156,6 +1156,8 @@ func Test_esTaskService_FailTimedOutTasks(t *testing.T) {
 }
 
 func Test_esTaskService_ArchiveOldTasks(t *testing.T) {
+	ArchivedTasksLock.Lock()
+	defer ArchivedTasksLock.Unlock()
 	service := buildTasksService()
 
 	queueToSeed := queue.Name("claimed-tasks-to-expire")

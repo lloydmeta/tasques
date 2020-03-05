@@ -64,8 +64,12 @@ func NewComponents(config *config.App) (*Components, error) {
 		return nil, err
 	} else {
 
-		indexTemplateChecker := index.DefaultTemplateSetup(esClient)
+		ilmSetup := index.NewILMSetup(esClient, config.LifeCycleSetup)
+		indexTemplateChecker := index.DefaultTemplateSetup(esClient, ilmSetup.ArchivedTemplateHook())
 		if err = indexTemplateChecker.Check(context.Background()); err != nil {
+			return nil, err
+		}
+		if err = ilmSetup.Check(context.Background()); err != nil {
 			return nil, err
 		}
 

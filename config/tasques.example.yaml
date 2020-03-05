@@ -96,3 +96,13 @@ tasques:
         scroll_size: 500
         # How long the scroll should last
         scroll_ttl: 1m
+    # ILM-setup related settings
+    life_cycle_setup:
+      # ILM setup for achived Tasks
+      archived_tasks:
+        # Whether or not to use ILM for archived Tasks data
+        enabled: true
+        # Optional custom policy
+        # custom_policy:
+        #  name: custom_name
+        #  policy: some Yaml...
