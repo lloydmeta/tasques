@@ -97,7 +97,7 @@ tasques:
         # How long the scroll should last
         scroll_ttl: 1m
     # ILM-setup related settings
-    life_cycle_setup:
+    lifecycle_setup:
       # ILM setup for achived Tasks
       archived_tasks:
         # Whether or not to use ILM for archived Tasks data

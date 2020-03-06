@@ -20,7 +20,7 @@ type App struct {
 	Logging         *Logging            `json:"logging,omitempty" mapstructure:"logging"`
 	Tasks           Tasks               `json:"tasks" mapstructure:"tasks"`
 	Recurring       Recurring           `json:"recurring" mapstructure:"recurring"`
-	LifeCycleSetup  LifeCycleSetup      `json:"life_cycle_setup" mapstructure:"life_cycle_setup"`
+	LifecycleSetup  LifecycleSetup      `json:"lifecycle_setup" mapstructure:"lifecycle_setup"`
 }
 
 type Logging struct {
@@ -100,16 +100,16 @@ type LeaderLock struct {
 	ReportLagTolerance time.Duration `json:"report_lag_tolerance" mapstructure:"report_lag_tolerance"`
 }
 
-type LifeCycleSetup struct {
-	ArchivedTasks LifeCycleSettings `json:"archived_tasks" mapstructure:"archived_tasks"`
+type LifecycleSetup struct {
+	ArchivedTasks LifecycleSettings `json:"archived_tasks" mapstructure:"archived_tasks"`
 }
 
-type LifeCycleSettings struct {
+type LifecycleSettings struct {
 	Enabled      bool                   `json:"enabled" mapstructure:"enabled"`
-	CustomPolicy *CustomLifeCyclePolicy `json:"custom_policy,omitempty" mapstructure:"custom_policy"`
+	CustomPolicy *CustomLifecyclePolicy `json:"custom_policy,omitempty" mapstructure:"custom_policy"`
 }
 
-type CustomLifeCyclePolicy struct {
+type CustomLifecyclePolicy struct {
 	Name   string                 `json:"name" mapstructure:"name"`
 	Policy map[string]interface{} `json:"policy" mapstructure:"policy"`
 }

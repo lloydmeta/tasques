@@ -13,6 +13,7 @@ import (
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/leader"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/task"
+	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/task/recurring"
 )
 
 type TemplateName string
@@ -158,7 +159,7 @@ func (t TemplatesNotInstalled) Error() string {
 // prevent mapping conflicts and mapping explosions)
 var TasquesQueuesTemplate = NewTemplate(
 	".tasques_queues_index_template",
-	[]Pattern{Pattern(task.BuildIndexName("*")), task.TasquesArchiveIndex},
+	[]Pattern{Pattern(task.BuildIndexName("*"))},
 	baseTaskMappings(),
 )
 
@@ -186,7 +187,7 @@ var TasquesLocksTemplate = NewTemplate(
 // prevent mapping conflicts and mapping explosions)
 var TasquesRecurringTasksTemplate = NewTemplate(
 	".tasques_recurring_tasks_index_template",
-	[]Pattern{".tasques_recurring_tasks"},
+	[]Pattern{recurring.TasquesRecurringTasksIndex},
 	Mappings{
 		"_source": Json{
 			"enabled": true,

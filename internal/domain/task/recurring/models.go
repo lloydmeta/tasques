@@ -25,6 +25,13 @@ type ScheduleExpression string
 
 // When a given Task was last "loaded" by a scheduling
 // process.
+//
+// Note that "loaded" as a term is ... loaded here; it basically
+// means that a Recurring Task's latest change has been "seen".
+// For example, if it was (soft) deleted, we actually remove it
+// from the Scheduler; but we update LoadedAt.
+//
+// This means that this field also acts as a "is_dirty" marker
 type LoadedAt time.Time
 
 // Soft-delete
@@ -44,6 +51,7 @@ type NewTask struct {
 //
 // There is some form of leaky abstraction going on here: saving it this
 // way allows us to easily atomically store data and query it.
+//
 // Given good ES integration is an explicit goal, I *think* at this point
 // that it's ok to leak a bit of that into the domain ..
 type Task struct {
