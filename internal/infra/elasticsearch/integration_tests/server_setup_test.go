@@ -14,7 +14,7 @@ import (
 	"github.com/lloydmeta/tasques/internal/infra/server"
 )
 
-func Test_Setup(t *testing.T) {
+func Test_Server_Setup(t *testing.T) {
 
 	ArchivedTasksLock.Lock()
 	defer ArchivedTasksLock.Unlock()

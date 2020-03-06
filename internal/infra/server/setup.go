@@ -62,7 +62,6 @@ func (i *impl) RunIfNeeded(ctx context.Context) error {
 		if _, policiesNotFound := err.(index.PolicyNotInstalled); policiesNotFound {
 			needsIlmSetup = true
 		} else {
-			log.Info().Msg("Skipping ILM setup")
 			return err
 		}
 	}
@@ -87,6 +86,8 @@ func (i *impl) RunIfNeeded(ctx context.Context) error {
 				log.Error().Err(err).Msg("Failed to install Kibana saved objects")
 				return err
 			}
+		} else {
+			return err
 		}
 	}
 
