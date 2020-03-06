@@ -26,7 +26,7 @@ If you don't have [Kubernetes](https://kubernetes.io) installed, install it.
 If you don't have EC installed,  run `make install-eck` to install the [ECK](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html) operator.
 
 Run `make k8s-deploy` to deploy all the needed infra, such as Tasques, including ES clusters (for tasques and our demo app), 
-Kibana, and APM.
+Kibana, and APM. Run `make k8s-teardown` to tear down the infra when you're done.
 
 ### Run the Ciphers server
 
