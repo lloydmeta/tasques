@@ -38,17 +38,27 @@ func NewTemplate(name TemplateName, patterns []Pattern, mappings Mappings) Templ
 	return Template{name: name, Patterns: patterns, Mappings: mappings}
 }
 
+type TemplateSetup interface {
+	// Runs the setup
+	Run(ctx context.Context) error
+
+	// Checks if the current TemplatesSetup was run.
+	//
+	// This is currently a shallow check for template presence only.
+	Check(ctx context.Context) error
+}
+
 // TemplatesSetup holds a list of Templates and has the ability to actually
 // send them to the server
-type TemplatesSetup struct {
+type templateSetupImpl struct {
 	esClient  *elasticsearch.Client
 	Templates []Template
 }
 
 // Returns the default Template setter upper
-func DefaultTemplateSetup(esClient *elasticsearch.Client, archiveTemplateModifier func(*Template)) TemplatesSetup {
+func DefaultTemplateSetup(esClient *elasticsearch.Client, archiveTemplateModifier func(*Template)) TemplateSetup {
 	archiveTemplateModifier(&TasquesArchiveTemplate)
-	return TemplatesSetup{
+	return &templateSetupImpl{
 		esClient: esClient,
 		Templates: []Template{
 			TasquesQueuesTemplate,
@@ -59,8 +69,7 @@ func DefaultTemplateSetup(esClient *elasticsearch.Client, archiveTemplateModifie
 	}
 }
 
-// Runs the setup
-func (s *TemplatesSetup) Run(ctx context.Context) error {
+func (s *templateSetupImpl) Run(ctx context.Context) error {
 	var errors []error
 	for _, template := range s.Templates {
 		if err := s.putTemplate(ctx, &template); err != nil {
@@ -74,10 +83,7 @@ func (s *TemplatesSetup) Run(ctx context.Context) error {
 	}
 }
 
-// Checks if the current TemplatesSetup was run.
-//
-// This is currently a shallow check for template presence only.
-func (s *TemplatesSetup) Check(ctx context.Context) error {
+func (s *templateSetupImpl) Check(ctx context.Context) error {
 	indexTemplateNames := make([]string, 0, len(s.Templates))
 	for _, t := range s.Templates {
 		indexTemplateNames = append(indexTemplateNames, string(t.Name()))
@@ -114,7 +120,7 @@ func (s *TemplatesSetup) Check(ctx context.Context) error {
 	}
 }
 
-func (s *TemplatesSetup) putTemplate(ctx context.Context, t *Template) error {
+func (s *templateSetupImpl) putTemplate(ctx context.Context, t *Template) error {
 	asBytes, err := json.Marshal(t)
 	log.Info().RawJSON("body", asBytes).Str("template_name", string(t.name)).Msg("Applying template")
 	if err != nil {
