@@ -30,7 +30,6 @@ import (
 	tracing2 "github.com/lloydmeta/tasques/internal/infra/apm/tracing"
 	recurring3 "github.com/lloydmeta/tasques/internal/infra/cron/task/recurring"
 	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/common"
-	"github.com/lloydmeta/tasques/internal/infra/elasticsearch/index"
 	"github.com/lloydmeta/tasques/internal/infra/server/routing/tasks"
 	"github.com/lloydmeta/tasques/internal/infra/server/routing/tasks/recurring"
 
@@ -52,6 +51,7 @@ type Components struct {
 	recurringRunner             leader.InternalRecurringFunctionRunner
 	dynamicScheduler            recurring2.Scheduler
 	recurringTasksManager       recurring2.Manager
+	setup                       Setup
 }
 
 func NewComponents(config *config.App) (*Components, error) {
@@ -63,14 +63,8 @@ func NewComponents(config *config.App) (*Components, error) {
 		return nil, err
 	} else {
 
-		ilmSetup := index.NewILMSetup(esClient, config.LifecycleSetup)
-		indexTemplateChecker := index.DefaultTemplateSetup(esClient, ilmSetup.ArchivedTemplateHook())
-		if err = indexTemplateChecker.Check(context.Background()); err != nil {
-			return nil, err
-		}
-		if err = ilmSetup.Check(context.Background()); err != nil {
-			return nil, err
-		}
+		httpClient := http.Client{}
+		setup := NewSetup(&httpClient, esClient, config)
 
 		tasksService := infraTask.NewService(esClient, config.Tasks.Defaults)
 		tasksController := taskController.New(tasksService, config.Tasks.Defaults)
@@ -107,11 +101,16 @@ func NewComponents(config *config.App) (*Components, error) {
 			recurringRunner:             recurringRunner,
 			dynamicScheduler:            dynamicScheduler,
 			recurringTasksManager:       recurringTasksManager,
+			setup:                       setup,
 		}, nil
 	}
 }
 
 func (c *Components) Run() {
+	if err := c.setup.Check(context.Background()); err != nil {
+		log.Fatal().Err(err).Msg("Server pre-req checks failed. Run the 'setup' command before retrying.")
+	}
+
 	validation.SetUpValidators(c.dynamicScheduler)
 
 	ginRouter := gin.New()

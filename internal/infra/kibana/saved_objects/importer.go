@@ -39,22 +39,27 @@ var ndjson = `{"attributes":{"buildNum":27675,"defaultIndex":".tasques_queue-*"}
 {"attributes":{"description":"","kibanaSavedObjectMeta":{"searchSourceJSON":"{\"query\":{\"query\":\"\",\"language\":\"kuery\"},\"indexRefName\":\"kibanaSavedObjectMeta.searchSourceJSON.index\",\"filter\":[]}"},"title":"Tasques State vs CreatedAt","uiStateJSON":"{}","version":1,"visState":"{\"title\":\"Tasques State vs CreatedAt\",\"type\":\"histogram\",\"params\":{\"type\":\"histogram\",\"grid\":{\"categoryLines\":false},\"categoryAxes\":[{\"id\":\"CategoryAxis-1\",\"type\":\"category\",\"position\":\"bottom\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\"},\"labels\":{\"show\":true,\"filter\":true,\"truncate\":100},\"title\":{}}],\"valueAxes\":[{\"id\":\"ValueAxis-1\",\"name\":\"LeftAxis-1\",\"type\":\"value\",\"position\":\"left\",\"show\":true,\"style\":{},\"scale\":{\"type\":\"linear\",\"mode\":\"normal\"},\"labels\":{\"show\":true,\"rotate\":0,\"filter\":false,\"truncate\":100},\"title\":{\"text\":\"Count\"}}],\"seriesParams\":[{\"show\":true,\"type\":\"histogram\",\"mode\":\"stacked\",\"valueAxis\":\"ValueAxis-1\",\"drawLinesBetweenPoints\":true,\"lineWidth\":2,\"showCircles\":true,\"data\":{\"label\":\"Count\",\"id\":\"1\"}}],\"addTooltip\":true,\"addLegend\":true,\"legendPosition\":\"right\",\"times\":[],\"addTimeMarker\":false,\"labels\":{\"show\":false},\"thresholdLine\":{\"show\":false,\"value\":10,\"width\":1,\"style\":\"full\",\"color\":\"#34130C\"},\"dimensions\":{\"x\":{\"accessor\":0,\"format\":{\"id\":\"date\",\"params\":{\"pattern\":\"HH:mm:ss\"}},\"params\":{\"date\":true,\"interval\":\"PT30S\",\"intervalESValue\":30,\"intervalESUnit\":\"s\",\"format\":\"HH:mm:ss\",\"bounds\":{\"min\":\"2020-02-09T05:48:54.769Z\",\"max\":\"2020-02-09T06:03:54.769Z\"}},\"aggType\":\"date_histogram\"},\"y\":[{\"accessor\":3,\"format\":{\"id\":\"number\"},\"params\":{},\"aggType\":\"count\"}],\"series\":[{\"accessor\":1,\"format\":{\"id\":\"string\"},\"params\":{},\"aggType\":\"significant_terms\"},{\"accessor\":2,\"format\":{\"id\":\"string\"},\"params\":{},\"aggType\":\"significant_terms\"}]}},\"aggs\":[{\"id\":\"1\",\"enabled\":true,\"type\":\"count\",\"schema\":\"metric\",\"params\":{}},{\"id\":\"2\",\"enabled\":true,\"type\":\"date_histogram\",\"schema\":\"segment\",\"params\":{\"field\":\"metadata.created_at\",\"timeRange\":{\"from\":\"now-15m\",\"to\":\"now\"},\"useNormalizedEsInterval\":true,\"scaleMetricValues\":false,\"interval\":\"auto\",\"drop_partials\":false,\"min_doc_count\":1,\"extended_bounds\":{}}},{\"id\":\"5\",\"enabled\":true,\"type\":\"significant_terms\",\"schema\":\"group\",\"params\":{\"field\":\"state\",\"size\":10}}]}"},"id":"0de746e0-4b02-11ea-99ce-a1882afeef23","migrationVersion":{"visualization":"7.4.2"},"references":[{"id":".tasques_queue-*","name":"kibanaSavedObjectMeta.searchSourceJSON.index","type":"index-pattern"}],"type":"visualization","updated_at":"2020-03-05T08:04:59.514Z","version":"WzI0LDFd"}
 {"exportedCount":23,"missingRefCount":0,"missingReferences":[]}`
 
+type Importer interface {
+	// Run kicks off the importing
+	Run(ctx context.Context) error
+}
+
 // Importer, when run imports Tasques-specific Kibana Saved Objects
-type Importer struct {
+type impl struct {
 	conf       config.KibanaClient
 	httpClient *http.Client
 }
 
 // NewImporter returns a new Importer
 func NewImporter(conf config.KibanaClient, httpClient *http.Client) Importer {
-	return Importer{
+	return &impl{
 		conf:       conf,
 		httpClient: httpClient,
 	}
 }
 
 // Run kicks off the importing
-func (i *Importer) Run(ctx context.Context) error {
+func (i *impl) Run(ctx context.Context) error {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	part, err := writer.CreateFormFile("file", "tasques_saved_objects.ndjson")

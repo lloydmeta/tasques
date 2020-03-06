@@ -59,19 +59,19 @@ type ILMSetup interface {
 	BootstrapIndices(ctx context.Context) error
 }
 
-type impl struct {
+type ilmSetupImpl struct {
 	esClient *elasticsearch.Client
 	config   config.LifecycleSetup
 }
 
 func NewILMSetup(esClient *elasticsearch.Client, config config.LifecycleSetup) ILMSetup {
-	return &impl{
+	return &ilmSetupImpl{
 		esClient: esClient,
 		config:   config,
 	}
 }
 
-func (i *impl) ArchivedTemplateHook() func(t *Template) {
+func (i *ilmSetupImpl) ArchivedTemplateHook() func(t *Template) {
 	return func(t *Template) {
 		if i.config.ArchivedTasks.Enabled {
 			policyName := i.archivedTasksPolicyName()
@@ -85,7 +85,7 @@ func (i *impl) ArchivedTemplateHook() func(t *Template) {
 	}
 }
 
-func (i *impl) InstallPolicies(ctx context.Context) error {
+func (i *ilmSetupImpl) InstallPolicies(ctx context.Context) error {
 	if i.config.ArchivedTasks.Enabled {
 		policyName := i.archivedTasksPolicyName()
 		asBytes, err := json.Marshal(i.archivedTasksPolicy())
@@ -115,7 +115,7 @@ func (i *impl) InstallPolicies(ctx context.Context) error {
 	}
 }
 
-func (i *impl) Check(ctx context.Context) error {
+func (i *ilmSetupImpl) Check(ctx context.Context) error {
 	if i.config.ArchivedTasks.Enabled {
 		policyName := i.archivedTasksPolicyName()
 		req := esapi.ILMGetLifecycleRequest{
@@ -141,14 +141,14 @@ func (i *impl) Check(ctx context.Context) error {
 	}
 }
 
-func (i *impl) archivedTasksPolicyName() string {
+func (i *ilmSetupImpl) archivedTasksPolicyName() string {
 	if i.config.ArchivedTasks.CustomPolicy != nil {
 		return i.config.ArchivedTasks.CustomPolicy.Name
 	} else {
 		return DefaultArchivedTasquesPolicyName
 	}
 }
-func (i *impl) archivedTasksPolicy() Json {
+func (i *ilmSetupImpl) archivedTasksPolicy() Json {
 	if i.config.ArchivedTasks.CustomPolicy != nil {
 		return Json{
 			"policy": i.config.ArchivedTasks.CustomPolicy.Policy,
@@ -160,7 +160,7 @@ func (i *impl) archivedTasksPolicy() Json {
 	}
 }
 
-func (i *impl) BootstrapIndices(ctx context.Context) error {
+func (i *ilmSetupImpl) BootstrapIndices(ctx context.Context) error {
 	if i.config.ArchivedTasks.Enabled {
 		indexCreateBody := buildWriteAlias(task.TasquesArchiveIndex)
 		indexCreateBodyAsBytes, err := json.Marshal(indexCreateBody)
