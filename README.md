@@ -26,6 +26,8 @@ Why use ES as a Tasks data store? It's horizontally scalable, highly-available, 
   `@every 1m`)
 - Timeouts for Tasks that are picked up by Workers but either don't report in or finish on time.
 - Archiving of completed Tasks (DONE or DEAD), also configurable
+  - If Index Lifecycle Management (ILM) is enabled (default), the archive index is set to roll over automatically for 
+    easy management of old data. 
 - Unclaiming allows Tasks that get picked up but can't be handled to be requeued without consequence.
 - API is exposed as Swagger; easily generate clients in any language:
   - Use the client to enqueue Tasks from your application
@@ -87,6 +89,12 @@ Requires [Go](https://golang.org) 1.13+.
     1. Install [go-swagger](https://goswagger.io/generate/client.html)
     2. Run `swagger generate client -f docs/swagger.yaml`
     3. Commit the generated files.
+    
+### Running tests
+
+**Unit tests**: `go test ./...`
+
+**Integration tests**: `go test -tags=integration ./...` (finds `// +build integration` at the top o IT files)
 
 #### Code guidelines
 
@@ -98,3 +106,13 @@ The code emphasises the following:
 4. **High availability**: the server needs to be able to run in a highly available way to maximise robusness.
 5. **Simplicity**: the API needs to be simple and easy to use
 6. **Maintainability**: the internals need to be as simple as possible and invite contributions. Use the rule of 3 to know when something should be generalised. If in doubt, repeat yourself.
+
+### Credit
+
+This project was inspired by the following, in no particular order
+
+* [Celery](http://www.celeryproject.org)
+* [Resque](https://github.com/resque/resque)
+* [Sidekiq](http://sidekiq.org)
+* [Faktory](https://contribsys.com/faktory/)
+* [esqueue](https://github.com/elastic/esqueue)

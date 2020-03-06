@@ -24,7 +24,7 @@ var setupCmd = &cobra.Command{
 			log.Fatal().Err(err).Msg("Could not setup Elasticsearch client")
 		}
 		log.Info().Msg("Setting up ILM")
-		ilmSetup := index.NewILMSetup(esClient, appConfig.LifeCycleSetup)
+		ilmSetup := index.NewILMSetup(esClient, appConfig.LifecycleSetup)
 		if err := ilmSetup.InstallPolicies(ctx); err != nil {
 			log.Fatal().Err(err).Msg("Could not install ILM policies")
 		}

@@ -24,8 +24,8 @@ func Test_DefaultTemplatesSetup_Run(t *testing.T) {
 
 }
 
-var lifecycleSetupSettings = config.LifeCycleSetup{
-	ArchivedTasks: config.LifeCycleSettings{
+var lifecycleSetupSettings = config.LifecycleSetup{
+	ArchivedTasks: config.LifecycleSettings{
 		Enabled: true,
 	},
 }

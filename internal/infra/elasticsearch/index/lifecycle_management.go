@@ -61,10 +61,10 @@ type ILMSetup interface {
 
 type impl struct {
 	esClient *elasticsearch.Client
-	config   config.LifeCycleSetup
+	config   config.LifecycleSetup
 }
 
-func NewILMSetup(esClient *elasticsearch.Client, config config.LifeCycleSetup) ILMSetup {
+func NewILMSetup(esClient *elasticsearch.Client, config config.LifecycleSetup) ILMSetup {
 	return &impl{
 		esClient: esClient,
 		config:   config,
