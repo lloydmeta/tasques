@@ -52,7 +52,6 @@ type Components struct {
 	recurringRunner             leader.InternalRecurringFunctionRunner
 	dynamicScheduler            recurring2.Scheduler
 	recurringTasksManager       recurring2.Manager
-	logFile                     *os.File
 }
 
 func NewComponents(config *config.App) (*Components, error) {

@@ -1,4 +1,4 @@
-## Tasques [![Build Status](https://travis-ci.org/lloydmeta/tasques.svg?branch=master)](https://travis-ci.org/lloydmeta/tasques) [![codecov](https://codecov.io/gh/lloydmeta/tasques/branch/master/graph/badge.svg)](https://codecov.io/gh/lloydmeta/tasques) [![](https://images.microbadger.com/badges/commit/lloydmeta/tasques.svg)](https://microbadger.com/images/lloydmeta/tasques "tasques docker image details")
+## Tasques [![Build Status](https://travis-ci.org/lloydmeta/tasques.svg?branch=master)](https://travis-ci.org/lloydmeta/tasques) [![codecov](https://codecov.io/gh/lloydmeta/tasques/branch/master/graph/badge.svg)](https://codecov.io/gh/lloydmeta/tasques) [![Go Report Card](https://goreportcard.com/badge/github.com/lloydmeta/tasques)](https://goreportcard.com/report/github.com/lloydmeta/tasques) [![](https://images.microbadger.com/badges/commit/lloydmeta/tasques.svg)](https://microbadger.com/images/lloydmeta/tasques "tasques docker image details")
 
 > Task queues backed by Elasticsearch (ES): Tasques 
 >
@@ -73,6 +73,14 @@ you not only gain the benefits of being able to handle more load, but also shiel
 of these internal Tasks, as a new Leader will be elected and take over if the current Leader loses connectivity or is terminated.
 
 Running multiple servers also allows for zero-downtime rollouts of new versions of Tasques server.
+
+### Delivery
+
+Assuming there is no data loss at the ES level, Tasques provides at-least-once delivery, ensuring that it only allows a
+single Worker (identified by Id) to have claim on a Task at any given time.
+
+If there is data loss/recovery (snapshot recovery, ES node loss), jobs might be handed out twice, so it's a good idea to 
+make job handling idempotent.
 
 ### Dev
 

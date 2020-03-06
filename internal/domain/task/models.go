@@ -242,7 +242,6 @@ func (t *Task) IntoFailed(byWorker worker.Id, at CompletedAt, failure *Failure) 
 		} else {
 			retriesSoFar = 0 // impossible unless if someone played around with the storage directly, but hey
 		}
-		// 15 + retries ^ 4 + (rand(30) * (retries + 1))
 		waitTimeSecondsInt := 15 + retriesSoFar ^ 4 + (rand.Intn(30) * (retriesSoFar + 1))
 		waitTimeDuration := time.Duration(waitTimeSecondsInt * int(time.Second))
 		t.RunAt = RunAt(time.Time(at).Add(waitTimeDuration))
