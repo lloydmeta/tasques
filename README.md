@@ -74,6 +74,16 @@ of these internal Tasks, as a new Leader will be elected and take over if the cu
 
 Running multiple servers also allows for zero-downtime rollouts of new versions of Tasques server.
 
+**Note:** 
+
+The current implementation of the leader lock depends on reasonable clock sync on running systems. In practice,
+this is not an issue on most systems, container orchestration engines and Cloud providers thanks to NTP sync being used
+by default; a lot of tools and monitoring already depend on clocks being synced! 
+
+That said, the tolerance for drift can be configured using the `tasques.server.recurring.leader_lock.report_lag_tolerance`
+setting (override using `TASQUES_SERVER_RECURRING_LEADER_LOCK_REPORT_LAG_TOLERANCE` env variable) as a duration string
+(e.g. `10s`).
+
 ### Delivery
 
 Assuming there is no data loss at the ES level, Tasques provides at-least-once delivery, ensuring that it only allows a

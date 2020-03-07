@@ -60,10 +60,17 @@ tasques:
     recurring: # Settings for recurring server side functions
       # Settings for the leader lock functionalit
       leader_lock:
-        # How often the lock loop should run
+        # How often the lock loop should run (check and re-enforce leader)
         check_interval: 1s
-        # how long to wait before a leader lock claim is considered obsolete (should be longer than check interval
-        report_lag_tolerance: 5s
+        # How long to wait before a leader lock claim is considered stale/obsolete (should be longer than check interval)
+        #
+        # Increasing this setting means a longer wait before leadership is taken over in the event of the leader not
+        # renewing its lock claim (exit or crash), but if the system clocks on your servers drift significantly (e.g. NTP
+        # is off or broken) setting this higher than the max expected drift will decrease flappiness.
+        #
+        # That said, if you have high clock drift between servers, it's highly recommended to fix that first before
+        # adjusting this because you probably have Much Bigger Problems TM
+        report_lag_tolerance: 10s
       # Settings for the timed out task reaping functionality
       timed_out_tasks_reaper:
         # How long to wait between runs
