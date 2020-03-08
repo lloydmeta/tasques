@@ -12,6 +12,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/lloydmeta/tasques/internal/domain/leader"
@@ -115,11 +116,19 @@ func (e *EsLock) getState() state {
 }
 func (e *EsLock) setState(newState state) {
 	if oldState := state(atomic.SwapUint32((*uint32)(&e.state), uint32(newState))); oldState != newState {
-		log.Info().
-			Str("old_state", oldState.String()).
-			Str("new_state", newState.String()).
-			Str("process_id", string(e.processId)).
-			Msg("Setting State")
+		var loggingEvent *zerolog.Event
+		if log.Debug().Enabled() {
+			loggingEvent = log.Debug()
+		} else if newState == LEADER && log.Info().Enabled() {
+			loggingEvent = log.Info()
+		}
+		if loggingEvent != nil {
+			loggingEvent.
+				Str("old_state", oldState.String()).
+				Str("new_state", newState.String()).
+				Str("process_id", string(e.processId)).
+				Msg("Setting State")
+		}
 	}
 }
 
