@@ -96,8 +96,8 @@ type Recurring struct {
 }
 
 type LeaderLock struct {
-	CheckInterval      time.Duration `json:"check_interval" mapstructure:"check_interval"`
-	ReportLagTolerance time.Duration `json:"report_lag_tolerance" mapstructure:"report_lag_tolerance"`
+	RunInterval     time.Duration `json:"run_interval" mapstructure:"run_interval"`
+	LeaderLockLease time.Duration `json:"leader_lock_lease" mapstructure:"leader_lock_lease"`
 }
 
 type LifecycleSetup struct {
