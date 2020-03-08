@@ -12,6 +12,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/lloydmeta/tasques/internal/domain/leader"
@@ -67,8 +68,8 @@ type EsLock struct {
 	getUTC    func() time.Time // for mocking
 	state     state            // set and get via atomic ops since we'll access this from different threads
 
-	loopInterval             time.Duration
-	leaderReportLagTolerance time.Duration
+	loopInterval    time.Duration
+	leaderLockLease time.Duration
 
 	stashedDoc *esLeaderInfo // could be empty
 
@@ -97,12 +98,12 @@ func NewLeaderLock(leaderLockDocId common.DocumentID, client *elasticsearch.Clie
 		getUTC: func() time.Time {
 			return time.Now().UTC()
 		},
-		state:                    CHECKER,
-		loopInterval:             loopInterval,
-		leaderReportLagTolerance: leaderReportLagTolerance,
-		stashedDoc:               nil,
-		stateLock:                sync.Mutex{},
-		tracer:                   tracer,
+		state:           CHECKER,
+		loopInterval:    loopInterval,
+		leaderLockLease: leaderReportLagTolerance,
+		stashedDoc:      nil,
+		stateLock:       sync.Mutex{},
+		tracer:          tracer,
 	}
 }
 
@@ -115,11 +116,19 @@ func (e *EsLock) getState() state {
 }
 func (e *EsLock) setState(newState state) {
 	if oldState := state(atomic.SwapUint32((*uint32)(&e.state), uint32(newState))); oldState != newState {
-		log.Info().
-			Str("old_state", oldState.String()).
-			Str("new_state", newState.String()).
-			Str("process_id", string(e.processId)).
-			Msg("Setting State")
+		var loggingEvent *zerolog.Event
+		if log.Debug().Enabled() {
+			loggingEvent = log.Debug()
+		} else if newState == LEADER && log.Info().Enabled() {
+			loggingEvent = log.Info()
+		}
+		if loggingEvent != nil {
+			loggingEvent.
+				Str("old_state", oldState.String()).
+				Str("new_state", newState.String()).
+				Str("process_id", string(e.processId)).
+				Msg("Setting State")
+		}
 	}
 }
 
@@ -158,8 +167,9 @@ func (e *EsLock) submitNameForLeader() (*esLeaderInfo, error) {
 
 	now := e.getUTC()
 	data := leaderData{
-		LeaderId: e.processId,
-		At:       now,
+		LeaderId:        e.processId,
+		At:              now,
+		LeaderLockLease: e.leaderLockLease,
 	}
 	dataAsBytes, err := json.Marshal(data)
 	if err != nil {
@@ -188,10 +198,7 @@ func (e *EsLock) submitNameForLeader() (*esLeaderInfo, error) {
 			ID:          response.ID,
 			SeqNum:      seqNum(response.SeqNum),
 			PrimaryTerm: primaryTerm(response.PrimaryTerm),
-			Source: leaderData{
-				LeaderId: e.processId,
-				At:       now,
-			},
+			Source:      data,
 		}
 		return &info, nil
 	case statusCode == 409:
@@ -210,8 +217,9 @@ func (e *EsLock) jostleForLeader(primaryT primaryTerm, seqNo seqNum) (*esLeaderI
 
 	now := e.getUTC()
 	data := leaderData{
-		LeaderId: e.processId,
-		At:       now,
+		LeaderId:        e.processId,
+		At:              now,
+		LeaderLockLease: e.leaderLockLease,
 	}
 	dataAsBytes, err := json.Marshal(data)
 	if err != nil {
@@ -245,10 +253,7 @@ func (e *EsLock) jostleForLeader(primaryT primaryTerm, seqNo seqNum) (*esLeaderI
 			ID:          resp.ID,
 			SeqNum:      seqNum(resp.SeqNum),
 			PrimaryTerm: primaryTerm(resp.PrimaryTerm),
-			Source: leaderData{
-				LeaderId: e.processId,
-				At:       now,
-			},
+			Source:      data,
 		}
 		return &info, nil
 	case statusCode == 404:
@@ -266,17 +271,20 @@ func (e *EsLock) loop() {
 top:
 	e.stateLock.Lock()
 	loopStartTime := e.getUTC()
-	ignoreMinLoopInterval := false
+
+	loopMinWait := e.loopInterval
+
 	switch e.getState() {
 	case LEADER:
 		if e.stashedDoc != nil {
 			if r, err := e.jostleForLeader(e.stashedDoc.PrimaryTerm, e.stashedDoc.SeqNum); err != nil {
 				switch v := err.(type) {
 				case NotFound:
-					ignoreMinLoopInterval = true
+					loopMinWait = 0
 					e.stashedDoc = nil
 					e.setState(PRETENDER)
 				case Conflict:
+					// someone else is the leader
 					e.stashedDoc = nil
 					e.setState(CHECKER)
 				default:
@@ -285,10 +293,12 @@ top:
 					e.setState(CHECKER)
 				}
 			} else {
+				// we are still the leader
 				e.stashedDoc = r
 				e.setState(LEADER)
 			}
 		} else { // impossible, but defensively doing this.
+			log.Error().Msg("Could not find stashed leader doc when re-enforcing leadership.")
 			e.setState(CHECKER)
 		}
 	case PRETENDER:
@@ -310,7 +320,7 @@ top:
 		if r, err := e.getLeaderDoc(); err != nil {
 			switch v := err.(type) {
 			case NotFound:
-				ignoreMinLoopInterval = true
+				loopMinWait = 0
 				e.stashedDoc = nil
 				e.setState(PRETENDER)
 			default:
@@ -319,37 +329,34 @@ top:
 				e.setState(CHECKER)
 			}
 		} else {
-			now := e.getUTC()
-			if now.Sub(r.Source.At) > e.leaderReportLagTolerance {
-				log.Debug().Msgf("now [%v] doc at [%v]", now, r.Source.At)
-				log.Debug().Msgf("too much lag; got [%v] > [%v]", now.Sub(r.Source.At), e.leaderReportLagTolerance)
-				ignoreMinLoopInterval = true
+			if r.Source.LeaderId == e.processId {
+				// Somehow we are the leader but didn't know it
+				log.Warn().
+					Str("process_id", string(e.processId)).
+					Str("doc_id", string(e.leaderLockDockId)).
+					Msg("Was leader but didn't know it.")
+				loopMinWait = 0 // re-enforce
 				e.stashedDoc = r
-				e.setState(USURPER)
+				e.setState(LEADER)
 			} else {
-				// still reliable
-				if r.Source.LeaderId == e.processId {
-					ignoreMinLoopInterval = true // re-enforce
-					e.stashedDoc = r
-					e.setState(LEADER)
-				} else {
-					e.stashedDoc = nil
-					e.setState(CHECKER)
-				}
+				// Someone else is the leader; wait for min tolerance
+				// time, then try to usurp them
+				e.stashedDoc = r
+				loopMinWait = r.Source.LeaderLockLease
+				e.setState(USURPER)
 			}
 		}
 	case USURPER:
-		if e.stashedDoc == nil {
-			log.Error().Msg("Could not find stashed leader doc when usurping leader.")
-			e.setState(CHECKER)
-		} else {
+		if e.stashedDoc != nil {
 			if r, err := e.jostleForLeader(e.stashedDoc.PrimaryTerm, e.stashedDoc.SeqNum); err != nil {
 				switch v := err.(type) {
 				case Conflict:
+					// In the 99.9% case, this just means that the leader is still the leader.
 					e.stashedDoc = nil
 					e.setState(CHECKER)
 				case NotFound:
-					ignoreMinLoopInterval = true
+					// The lock document is gone; immediately try to gain leadership
+					loopMinWait = 0
 					e.stashedDoc = nil
 					e.setState(PRETENDER)
 				default:
@@ -358,22 +365,29 @@ top:
 					e.setState(CHECKER)
 				}
 			} else {
-				ignoreMinLoopInterval = true // re-enforce
+				// We are now the leader
+				loopMinWait = 0 // re-enforce right away
 				e.stashedDoc = r
 				e.setState(LEADER)
 			}
+		} else { // impossible, but defensively doing this.
+			log.Error().Msg("Could not find stashed leader doc when usurping leader.")
+			e.setState(CHECKER)
 		}
 	case STOPPED:
 		e.stateLock.Unlock()
 		return // exit
 	default:
+		log.Error().
+			Str("state", e.state.String()).
+			Msg("Unexpected state. Setting to CHECKER and re-loop@ing")
 		e.stashedDoc = nil
 		e.setState(CHECKER)
 	}
 	e.stateLock.Unlock()
-	if !ignoreMinLoopInterval {
+	if loopMinWait > 0 {
 		loopEndTime := e.getUTC()
-		waitTime := e.loopInterval - loopEndTime.Sub(loopStartTime)
+		waitTime := loopMinWait - loopEndTime.Sub(loopStartTime)
 		if waitTime > 0 {
 			time.Sleep(waitTime)
 		}
@@ -406,8 +420,9 @@ func (n Conflict) Error() string {
 }
 
 type leaderData struct {
-	LeaderId processId `json:"leader_id"`
-	At       time.Time `json:"at"`
+	LeaderId        processId     `json:"leader_id"`
+	At              time.Time     `json:"at"`
+	LeaderLockLease time.Duration `json:"leader_lock_lease"`
 }
 
 type primaryTerm uint64

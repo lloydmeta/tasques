@@ -167,8 +167,8 @@ func buildRecurringTasksLeaderLock(conf config.LeaderLock, esClient *elasticsear
 	return infraLeader.NewLeaderLock(
 		"recurring-tasks-leader",
 		esClient,
-		conf.CheckInterval,
-		conf.ReportLagTolerance,
+		conf.RunInterval,
+		conf.LeaderLockLease,
 		tracer,
 	)
 }
