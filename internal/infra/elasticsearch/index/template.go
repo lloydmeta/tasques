@@ -275,6 +275,15 @@ func baseTaskMappings() Json {
 		},
 		"dynamic": true, // We use persistence models anyways, so we can make sure mappings don't  get out of hand
 		"properties": Json{
+			"queue": Json{
+				"type": "text",
+				"fields": Json{
+					"keyword": Json{
+						"type":         "keyword",
+						"ignore_above": 256,
+					},
+				},
+			},
 			"retry_times": Json{
 				"type": "long",
 			},
@@ -384,15 +393,5 @@ func baseTaskMappings() Json {
 
 func archivedTaskMappings() Json {
 	base := baseTaskMappings()
-	properties := base["properties"].(Json)
-	properties["queue"] = Json{
-		"type": "text",
-		"fields": Json{
-			"keyword": Json{
-				"type":         "keyword",
-				"ignore_above": 256,
-			},
-		},
-	}
 	return base
 }

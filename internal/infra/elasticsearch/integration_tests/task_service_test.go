@@ -70,6 +70,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 				},
 			},
 			wantedJson: JsonObj{
+				"queue":              "persisted-form-test",
 				"retry_times":        float64(1),
 				"remaining_attempts": float64(2),
 				"kind":               "k1",
@@ -104,6 +105,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 				},
 			},
 			wantedJson: JsonObj{
+				"queue":              "persisted-form-test",
 				"retry_times":        float64(2),
 				"remaining_attempts": float64(3),
 				"kind":               "k1",
@@ -1203,7 +1205,7 @@ func Test_esTaskService_ArchiveOldTasks(t *testing.T) {
 
 			archived, err := getArchivedTask(seeded.ID)
 			if err == nil {
-				expected := task2.ToPersistedArchivedTask(&seeded)
+				expected := task2.ToPersistedTask(&seeded)
 				assert.EqualValues(t, &expected, archived)
 			} else {
 				ok = false
@@ -1279,14 +1281,14 @@ func setTasksServiceClock(t *testing.T, service task.Service, frozenTime time.Ti
 }
 
 type esHitPersistedArchivedTask struct {
-	ID          string                          `json:"_id"`
-	Index       string                          `json:"_index"`
-	SeqNum      uint64                          `json:"_seq_no"`
-	PrimaryTerm uint64                          `json:"_primary_term"`
-	Source      task2.PersistedArchivedTaskData `json:"_source"`
+	ID          string                  `json:"_id"`
+	Index       string                  `json:"_index"`
+	SeqNum      uint64                  `json:"_seq_no"`
+	PrimaryTerm uint64                  `json:"_primary_term"`
+	Source      task2.PersistedTaskData `json:"_source"`
 }
 
-func getArchivedTask(id task.Id) (*task2.PersistedArchivedTaskData, error) {
+func getArchivedTask(id task.Id) (*task2.PersistedTaskData, error) {
 	searchReq := esapi.GetRequest{
 		Index:      task2.TasquesArchiveIndex,
 		DocumentID: string(id),

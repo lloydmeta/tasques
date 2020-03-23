@@ -43,8 +43,9 @@ func NewService(client *elasticsearch.Client, settings config.TasksDefaults) tas
 func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Task, error) {
 	indexName := BuildIndexName(newTask.Queue)
 	now := e.getUTC()
-	toPersist := persistedTaskData{
+	toPersist := PersistedTaskData{
 		RetryTimes:        uint(newTask.RetryTimes),
+		Queue:             string(newTask.Queue),
 		RemainingAttempts: uint(newTask.RetryTimes + 1), // even with 0 retries, we want 1 attempt
 		Kind:              string(newTask.Kind),
 		State:             task.QUEUED,
@@ -88,7 +89,7 @@ func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Ta
 		}
 		taskId := taskId
 
-		domainTask := toPersist.toDomainTask(taskId, newTask.Queue, response.Version())
+		domainTask := toPersist.toDomainTask(taskId, response.Version())
 		return &domainTask, nil
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
@@ -383,7 +384,7 @@ func (e *EsService) getAndUpdate(ctx context.Context, queue queue.Name, taskId t
 	targetTask.Metadata.ModifiedAt = at
 
 	// Build mutate data
-	updatePayload := toPersistedTask(targetTask)
+	updatePayload := ToPersistedTask(targetTask)
 	updatePayloadBytes, err := json.Marshal(updatePayload)
 	if err != nil {
 		return nil, common.JsonSerdesErr{Underlying: []error{err}}
@@ -727,7 +728,7 @@ func buildUpdateBulkOp(task *task.Task) updateTaskBulkOpPair {
 				IfPrimaryTerm: uint64(task.Metadata.Version.PrimaryTerm),
 			},
 		},
-		doc: toPersistedTask(task),
+		doc: ToPersistedTask(task),
 	}
 }
 
@@ -748,33 +749,14 @@ func buildTaskArchival(t *task.Task) bulkTaskArchival {
 					Index: TasquesArchiveIndex,
 				},
 			},
-			doc: ToPersistedArchivedTask(t),
+			doc: ToPersistedTask(t),
 		},
 	}
 }
 
 // Private persistence doc structures based entirely on basic types for ease of guaranteeing serdes.
 
-type persistedTaskData struct {
-	RetryTimes uint `json:"retry_times"`
-	// This doesn't map to the domain model 1:1 because storing _attempts_ instead of retires
-	// allows us to not need to adjust the counts for timeouts, and instead issue a simple update-by-query
-	RemainingAttempts uint                     `json:"remaining_attempts"`
-	Kind              string                   `json:"kind"`
-	State             task.State               `json:"state"`
-	RunAt             time.Time                `json:"run_at"`
-	ProcessingTimeout time.Duration            `json:"processing_timeout"`
-	Priority          int                      `json:"priority"`
-	Args              *jsonObjMap              `json:"args,omitempty"`
-	Context           *jsonObjMap              `json:"context,omitempty"`
-	LastEnqueuedAt    time.Time                `json:"last_enqueued_at"`
-	LastClaimed       *persistedLastClaimed    `json:"last_claimed,omitempty"`
-	Metadata          common.PersistedMetadata `json:"metadata"`
-	RecurringTaskId   *string                  `json:"recurring_task_id,omitempty"`
-}
-
-type PersistedArchivedTaskData struct {
-	// We don't store archived Tasks in their own queues
+type PersistedTaskData struct {
 	Queue      string `json:"queue"`
 	RetryTimes uint   `json:"retry_times"`
 	// This doesn't map to the domain model 1:1 because storing _attempts_ instead of retires
@@ -813,7 +795,7 @@ type persistedResult struct {
 	Success *jsonObjMap `json:"success,omitempty"`
 }
 
-func (pTask *persistedTaskData) toDomainTask(taskId task.Id, queue queue.Name, version metadata.Version) task.Task {
+func (pTask *PersistedTaskData) toDomainTask(taskId task.Id, version metadata.Version) task.Task {
 	var domainLastClaimed *task.LastClaimed
 	if pTask.LastClaimed != nil {
 		var result *task.Result
@@ -842,7 +824,7 @@ func (pTask *persistedTaskData) toDomainTask(taskId task.Id, queue queue.Name, v
 
 	return task.Task{
 		ID:                taskId,
-		Queue:             queue,
+		Queue:             queue.Name(pTask.Queue),
 		RetryTimes:        task.RetryTimes(pTask.RetryTimes),
 		Attempted:         task.AttemptedTimes(pTask.RetryTimes + 1 - pTask.RemainingAttempts),
 		Kind:              task.Kind(pTask.Kind),
@@ -866,13 +848,13 @@ func (pTask *persistedTaskData) toDomainTask(taskId task.Id, queue queue.Name, v
 func (resp *esHitPersistedTask) ToDomainTask() task.Task {
 	pTask := resp.Source
 
-	return pTask.toDomainTask(task.Id(resp.ID), queueNameFromIndexName(common.IndexName(resp.Index)), metadata.Version{
+	return pTask.toDomainTask(task.Id(resp.ID), metadata.Version{
 		SeqNum:      metadata.SeqNum(resp.SeqNum),
 		PrimaryTerm: metadata.PrimaryTerm(resp.PrimaryTerm),
 	})
 }
 
-func toPersistedTask(task *task.Task) persistedTaskData {
+func ToPersistedTask(task *task.Task) PersistedTaskData {
 	var lastClaimed *persistedLastClaimed
 	if task.LastClaimed != nil {
 		var result *persistedResult
@@ -901,8 +883,9 @@ func toPersistedTask(task *task.Task) persistedTaskData {
 		}
 	}
 
-	return persistedTaskData{
+	return PersistedTaskData{
 		RetryTimes:        uint(task.RetryTimes),
+		Queue:             string(task.Queue),
 		RemainingAttempts: uint(task.RetryTimes) + 1 - uint(task.Attempted),
 		Kind:              string(task.Kind),
 		State:             task.State,
@@ -921,32 +904,12 @@ func toPersistedTask(task *task.Task) persistedTaskData {
 	}
 }
 
-func ToPersistedArchivedTask(t *task.Task) PersistedArchivedTaskData {
-	normalPersistedTask := toPersistedTask(t)
-	return PersistedArchivedTaskData{
-		Queue:             string(t.Queue),
-		RetryTimes:        normalPersistedTask.RetryTimes,
-		RemainingAttempts: normalPersistedTask.RemainingAttempts,
-		Kind:              normalPersistedTask.Kind,
-		State:             normalPersistedTask.State,
-		RunAt:             normalPersistedTask.RunAt,
-		ProcessingTimeout: normalPersistedTask.ProcessingTimeout,
-		Priority:          normalPersistedTask.Priority,
-		Args:              normalPersistedTask.Args,
-		Context:           normalPersistedTask.Context,
-		LastEnqueuedAt:    normalPersistedTask.LastEnqueuedAt,
-		LastClaimed:       normalPersistedTask.LastClaimed,
-		Metadata:          normalPersistedTask.Metadata,
-		RecurringTaskId:   normalPersistedTask.RecurringTaskId,
-	}
-}
-
 type esHitPersistedTask struct {
 	ID          string            `json:"_id"`
 	Index       string            `json:"_index"`
 	SeqNum      uint64            `json:"_seq_no"`
 	PrimaryTerm uint64            `json:"_primary_term"`
-	Source      persistedTaskData `json:"_source"`
+	Source      PersistedTaskData `json:"_source"`
 }
 
 func buildClaimableQueryBody(limit uint, nowUtc time.Time) jsonObjMap {
@@ -1022,7 +985,7 @@ type esSearchResponse struct {
 
 type updateTaskBulkOpPair struct {
 	op  updateTaskBulkPairOp
-	doc persistedTaskData
+	doc PersistedTaskData
 }
 
 type updateTaskBulkPairOp struct {
@@ -1055,7 +1018,7 @@ type deleteBulkOpData struct {
 
 type insertArchivedTaskOpPair struct {
 	op  insertArchivedTaskOp
-	doc PersistedArchivedTaskData
+	doc PersistedTaskData
 }
 
 type insertArchivedTaskOp struct {
