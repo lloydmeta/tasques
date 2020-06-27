@@ -97,6 +97,13 @@ func Test_handleErr(t *testing.T) {
 			},
 			409,
 		},
+		{
+			"AlreadyExists errors should 409",
+			args{
+				domainTask.AlreadyExists{},
+			},
+			409,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

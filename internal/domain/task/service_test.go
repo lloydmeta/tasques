@@ -418,3 +418,61 @@ func TestUnclaimable_Id(t *testing.T) {
 		})
 	}
 }
+
+func TestAlreadyExists_Error(t *testing.T) {
+	type fields struct {
+		ID Id
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "error string",
+			fields: fields{
+				ID: "id",
+			},
+			want: fmt.Sprintf("Task with Id [%v] already exists ", "id"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := AlreadyExists{
+				ID: tt.fields.ID,
+			}
+			if got := a.Error(); got != tt.want {
+				t.Errorf("Error() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAlreadyExists_Id(t *testing.T) {
+	type fields struct {
+		ID Id
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   Id
+	}{
+		{
+			name: "id",
+			fields: fields{
+				ID: "id",
+			},
+			want: "id",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := AlreadyExists{
+				ID: tt.fields.ID,
+			}
+			if got := a.Id(); got != tt.want {
+				t.Errorf("Id() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

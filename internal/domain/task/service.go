@@ -124,7 +124,7 @@ type AlreadyExists struct {
 }
 
 func (e AlreadyExists) Error() string {
-	return fmt.Sprintf("Id already exists [%v]", e.ID)
+	return fmt.Sprintf("Task with Id [%v] already exists ", e.ID)
 }
 
 func (e AlreadyExists) Id() Id {
