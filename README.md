@@ -85,11 +85,12 @@ make job handling idempotent.
 
 ### Idempotency
 
-When submitting/creating a Task, one can optionally specify an "id" field, which acts a Queue-specific idempotency key
-(a UUID is generated and used if not specified).
+When submitting/creating a Task, you can optionally specify an "id" field, which acts a Queue-specific idempotency key
+(a UUID is generated and used if not specified). If there is already a Task in the Queue you specified with that key, 
+the submission will fail.
 
-Note that idempotency is only for *live* Tasks: it's possible for a Task to be created with the same Id as another already
-archived Task. The `archive_older_than` period config can be tweaked if this is an issue. 
+Note that idempotency is only for un-archived Tasks: it's possible for a Task to be created with the same Id as another 
+already archived Task. The `archive_older_than` period config can be tweaked if this is an issue. 
 
 ### Dev
 
