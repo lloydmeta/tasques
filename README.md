@@ -22,6 +22,7 @@ Why use ES as a Tasks data store? It's horizontally scalable, highly-available, 
   - Priority
   - Schedule to run later
   - Retries with exponential increase in retry delays.
+- Idempotency
 - Recurring Tasks that are repeatedly enqueued at configurable intervals (cron format with basic macro support à la 
   `@every 1m`)
 - Timeouts for Tasks that are picked up by Workers but either don't report in or finish on time.
@@ -81,6 +82,14 @@ single Worker (identified by Id) to have claim on a Task at any given time.
 
 If there is data loss/recovery (snapshot recovery, ES node loss), jobs might be handed out twice, so it's a good idea to 
 make job handling idempotent.
+
+### Idempotency
+
+When submitting/creating a Task, one can optionally specify an "id" field, which acts a Queue-specific idempotency key
+(a UUID is generated and used if not specified).
+
+Note that idempotency is only for *live* Tasks: it's possible for a Task to be created with the same Id as another already
+archived Task. The `archive_older_than` period config can be tweaked if this is an issue. 
 
 ### Dev
 

@@ -3,6 +3,7 @@
 package integration_tests
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -46,6 +47,8 @@ var recurringId task.RecurringTaskId = "recurrrrr"
 func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 	service := buildTasksService()
 	now := time.Now().UTC()
+	id1 := task.GenerateNewId()
+	id2 := task.GenerateNewId()
 	setTasksServiceClock(t, service, now)
 	type args struct {
 		task *task.NewTask
@@ -59,6 +62,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 			name: "should not write nil fields out to ES",
 			args: args{
 				task: &task.NewTask{
+					Id:                &id1,
 					Queue:             "persisted-form-test",
 					RetryTimes:        1,
 					Kind:              "k1",
@@ -70,6 +74,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 				},
 			},
 			wantedJson: JsonObj{
+				"id":                 string(id1),
 				"queue":              "persisted-form-test",
 				"retry_times":        float64(1),
 				"remaining_attempts": float64(2),
@@ -89,6 +94,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 			name: "should persist provided args and context",
 			args: args{
 				task: &task.NewTask{
+					Id:                &id2,
 					Queue:             "persisted-form-test",
 					RetryTimes:        2,
 					Kind:              "k1",
@@ -105,6 +111,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 				},
 			},
 			wantedJson: JsonObj{
+				"id":                 string(id2),
 				"queue":              "persisted-form-test",
 				"retry_times":        float64(2),
 				"remaining_attempts": float64(3),
@@ -1289,9 +1296,34 @@ type esHitPersistedArchivedTask struct {
 }
 
 func getArchivedTask(id task.Id) (*task2.PersistedTaskData, error) {
-	searchReq := esapi.GetRequest{
-		Index:      task2.TasquesArchiveIndex,
-		DocumentID: string(id),
+	searchBody := JsonObj{
+		"size":                1,
+		"seq_no_primary_term": true,
+		"query": JsonObj{
+			"bool": JsonObj{
+				"filter": JsonObj{
+					"bool": JsonObj{
+						"must": []JsonObj{
+							{
+								"term": JsonObj{
+									"id": string(id),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	searchBodyBytes, err := json.Marshal(searchBody)
+	if err != nil {
+		return nil, err
+	}
+
+	searchReq := esapi.SearchRequest{
+		Index:          []string{task2.TasquesArchiveIndex},
+		AllowNoIndices: esapi.BoolPtr(false),
+		Body:           bytes.NewReader(searchBodyBytes),
 	}
 	rawResp, err := searchReq.Do(ctx, esClient)
 	if err != nil {
@@ -1301,13 +1333,15 @@ func getArchivedTask(id task.Id) (*task2.PersistedTaskData, error) {
 
 	switch rawResp.StatusCode {
 	case 200:
-		var response esHitPersistedArchivedTask
+		var response esArchivedSearchResponse
 		if err := json.NewDecoder(rawResp.Body).Decode(&response); err != nil {
 			return nil, common.JsonSerdesErr{Underlying: []error{err}}
 		}
-		return &response.Source, nil
-	case 404:
-		return nil, fmt.Errorf("not found")
+		if len(response.Hits.Hits) > 0 {
+			return &response.Hits.Hits[0].Source, nil
+		} else {
+			return nil, fmt.Errorf("not found")
+		}
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
 	}

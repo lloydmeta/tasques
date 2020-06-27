@@ -18,6 +18,8 @@ type Duration time.Duration
 
 // NewTask holds a description of a Task that is yet to be persisted
 type NewTask struct {
+	// Optionally specified identifier of a Task (for idempotency). If not supplied, a UUID is generated and used
+	ID *task.Id `json:"id" swaggertype:"string"`
 	// The queue that a Task will be inserted into
 	Queue domainQueue.Name `json:"queue" binding:"required,queueName" example:"run-later"`
 	// The number of times that a Task will be retried if it fails
@@ -163,6 +165,7 @@ func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultRunAt time.Time
 	}
 
 	return task.NewTask{
+		Id:                t.ID,
 		Queue:             t.Queue,
 		RetryTimes:        domainRetryTimes,
 		Kind:              t.Kind,

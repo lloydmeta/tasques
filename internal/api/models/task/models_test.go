@@ -33,7 +33,9 @@ var recurringTaskId = task.RecurringTaskId("hello")
 
 func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 	now := time.Now().UTC()
+	expectedId := task.Id("lol")
 	type fields struct {
+		Id                *task.Id
 		Queue             queue.Name
 		RetryTimes        *task.RetryTimes
 		Kind              task.Kind
@@ -102,6 +104,7 @@ func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 		{
 			"should use use the full spectrum of things I pass",
 			fields{
+				Id:                &expectedId,
 				Queue:             queue.Name("q"),
 				RetryTimes:        retryTimesPtr(999),
 				Kind:              "run",
@@ -121,6 +124,7 @@ func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 				defaultClaimsTimeout: 5 * time.Second,
 			},
 			task.NewTask{
+				Id:                &expectedId,
 				Queue:             "q",
 				RetryTimes:        task.RetryTimes(999),
 				Kind:              "run",
@@ -139,6 +143,7 @@ func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 	for _, tt := range tests {
 		t1.Run(tt.name, func(t1 *testing.T) {
 			t := &NewTask{
+				ID:                tt.fields.Id,
 				Queue:             tt.fields.Queue,
 				RetryTimes:        tt.fields.RetryTimes,
 				Kind:              tt.fields.Kind,

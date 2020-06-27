@@ -117,6 +117,20 @@ func (e InvalidVersion) Id() Id {
 	return e.ID
 }
 
+// AlreadyExists is returned when the service tries to create
+// a Task, but there already exists one with the same ID
+type AlreadyExists struct {
+	ID Id
+}
+
+func (e AlreadyExists) Error() string {
+	return fmt.Sprintf("Id already exists [%v]", e.ID)
+}
+
+func (e AlreadyExists) Id() Id {
+	return e.ID
+}
+
 // Invalid data
 type InvalidPersistedData struct {
 	PersistedData interface{}
