@@ -338,7 +338,7 @@ func Test_esTaskService_Get(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	assert.EqualValues(t, created2.ID, customId)
+	assert.EqualValues(t, customId, created2.ID)
 
 	type args struct {
 		queue  queue.Name
@@ -392,6 +392,81 @@ func Test_esTaskService_Get(t *testing.T) {
 			assert.EqualValues(t, want, got)
 		})
 	}
+}
+
+func Test_esTaskService_Create_with_same_id(t *testing.T) {
+	service := buildTasksService()
+	runAt := task.RunAt(time.Now().UTC())
+
+	customId := task.Id("custom-id-for-task")
+
+	toCreate := task.NewTask{
+		Id:                &customId,
+		Queue:             "create-twice-queue",
+		RetryTimes:        0,
+		Priority:          0,
+		Kind:              task.Kind("justATest"),
+		ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+		RunAt:             runAt,
+		Args: &task.Args{
+			"something":    "something",
+			"anotherThing": "something",
+		},
+		Context: &task.Context{
+			"reqId": "abc123",
+		},
+	}
+
+	created, err := service.Create(ctx, &toCreate)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, customId, created.ID)
+
+	// do it again
+	_, err = service.Create(ctx, &toCreate)
+	assert.Error(t, err)
+
+	var AlreadyExists task.AlreadyExists
+	assert.IsType(t, AlreadyExists, err)
+}
+
+func Test_esTaskService_Create_with_same_id_different_queue(t *testing.T) {
+	service := buildTasksService()
+	runAt := task.RunAt(time.Now().UTC())
+
+	customId := task.Id("custom-id-for-task")
+
+	toCreate := task.NewTask{
+		Id:                &customId,
+		Queue:             "some-rando-queue-1",
+		RetryTimes:        0,
+		Priority:          0,
+		Kind:              task.Kind("justATest"),
+		ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+		RunAt:             runAt,
+		Args: &task.Args{
+			"something":    "something",
+			"anotherThing": "something",
+		},
+		Context: &task.Context{
+			"reqId": "abc123",
+		},
+	}
+
+	created, err := service.Create(ctx, &toCreate)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, customId, created.ID)
+
+	// do it again but in a different queue
+	toCreate.Queue = "another-rando-queue"
+	created, err = service.Create(ctx, &toCreate)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, customId, created.ID)
 }
 
 func Test_esTaskService_Claim(t *testing.T) {
