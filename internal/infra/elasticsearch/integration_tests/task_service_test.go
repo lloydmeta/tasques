@@ -173,6 +173,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 func Test_esTaskService_Create(t *testing.T) {
 	service := buildTasksService()
 	runAt := task.RunAt(time.Now().UTC())
+	customId := task.Id("my-little-task")
 	type args struct {
 		task *task.NewTask
 	}
@@ -227,6 +228,52 @@ func Test_esTaskService_Create(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"create a task with a custom id",
+			args{
+				&task.NewTask{
+					Id:                &customId,
+					Queue:             "anywhere-but-here",
+					RetryTimes:        0,
+					Priority:          task.Priority(0),
+					Kind:              task.Kind("justATest"),
+					ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+					RunAt:             runAt,
+					Args: &task.Args{
+						"something":    "something",
+						"anotherThing": "something",
+					},
+					Context: &task.Context{
+						"reqId": "foobarhogehoge",
+					},
+				},
+			},
+
+			func(got *task.Task) task.Task {
+				return task.Task{
+					ID:                customId,
+					Queue:             "anywhere-but-here",
+					RetryTimes:        0,
+					Priority:          got.Priority,
+					Attempted:         0,
+					Kind:              task.Kind("justATest"),
+					State:             task.QUEUED,
+					RunAt:             runAt,
+					ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+					Args: &task.Args{
+						"something":    "something",
+						"anotherThing": "something",
+					},
+					Context: &task.Context{
+						"reqId": "foobarhogehoge",
+					},
+					LastClaimed:    nil,
+					LastEnqueuedAt: got.LastEnqueuedAt,
+					Metadata:       got.Metadata,
+				}
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		tt := tt // for parallelism
@@ -247,7 +294,7 @@ func Test_esTaskService_Get(t *testing.T) {
 	service := buildTasksService()
 	runAt := task.RunAt(time.Now().UTC())
 
-	toCreate := task.NewTask{
+	toCreate1 := task.NewTask{
 		Queue:             "somewhere-out-there",
 		RetryTimes:        0,
 		Priority:          0,
@@ -263,10 +310,35 @@ func Test_esTaskService_Get(t *testing.T) {
 		},
 	}
 
-	created, err := service.Create(ctx, &toCreate)
+	created1, err := service.Create(ctx, &toCreate1)
 	if err != nil {
 		t.Error(err)
 	}
+
+	customId := task.Id("custom-id-for-task")
+
+	toCreate2 := task.NewTask{
+		Id:                &customId,
+		Queue:             "somewhere-out-there",
+		RetryTimes:        0,
+		Priority:          0,
+		Kind:              task.Kind("justATest"),
+		ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+		RunAt:             runAt,
+		Args: &task.Args{
+			"something":    "something",
+			"anotherThing": "something",
+		},
+		Context: &task.Context{
+			"reqId": "abc123",
+		},
+	}
+
+	created2, err := service.Create(ctx, &toCreate2)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, created2.ID, customId)
 
 	type args struct {
 		queue  queue.Name
@@ -291,10 +363,19 @@ func Test_esTaskService_Get(t *testing.T) {
 		{
 			"get an existent task",
 			args{
-				created.Queue,
-				created.ID,
+				created1.Queue,
+				created1.ID,
 			},
-			created,
+			created1,
+			false,
+		},
+		{
+			"get an existent task with custom Id",
+			args{
+				created2.Queue,
+				customId,
+			},
+			created2,
 			false,
 		},
 	}
