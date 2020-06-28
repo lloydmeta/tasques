@@ -52,6 +52,7 @@ func (h *RoutesHandler) RegisterRoutes(routerGroup *gin.RouterGroup) {
 // @Param   newTask body task.NewTask true "The request body"
 // @Success 201 {object} task.Task
 // @Failure 400 {object} common.Body "Invalid JSON"
+// @Failure 409 {object} common.Body "Id in use"
 // @Router /tasques [post]
 func (h *RoutesHandler) create(c *gin.Context) {
 	var newTask task.NewTask

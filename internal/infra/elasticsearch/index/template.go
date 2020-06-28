@@ -275,6 +275,15 @@ func baseTaskMappings() Json {
 		},
 		"dynamic": true, // We use persistence models anyways, so we can make sure mappings don't  get out of hand
 		"properties": Json{
+			"id": Json{
+				"type": "text",
+				"fields": Json{
+					"keyword": Json{
+						"type":         "keyword",
+						"ignore_above": 256,
+					},
+				},
+			},
 			"queue": Json{
 				"type": "text",
 				"fields": Json{

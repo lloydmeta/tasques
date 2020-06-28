@@ -3,6 +3,7 @@
 package integration_tests
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -46,6 +47,8 @@ var recurringId task.RecurringTaskId = "recurrrrr"
 func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 	service := buildTasksService()
 	now := time.Now().UTC()
+	id1 := task.GenerateNewId()
+	id2 := task.GenerateNewId()
 	setTasksServiceClock(t, service, now)
 	type args struct {
 		task *task.NewTask
@@ -59,6 +62,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 			name: "should not write nil fields out to ES",
 			args: args{
 				task: &task.NewTask{
+					Id:                &id1,
 					Queue:             "persisted-form-test",
 					RetryTimes:        1,
 					Kind:              "k1",
@@ -70,6 +74,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 				},
 			},
 			wantedJson: JsonObj{
+				"id":                 string(id1),
 				"queue":              "persisted-form-test",
 				"retry_times":        float64(1),
 				"remaining_attempts": float64(2),
@@ -89,6 +94,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 			name: "should persist provided args and context",
 			args: args{
 				task: &task.NewTask{
+					Id:                &id2,
 					Queue:             "persisted-form-test",
 					RetryTimes:        2,
 					Kind:              "k1",
@@ -105,6 +111,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 				},
 			},
 			wantedJson: JsonObj{
+				"id":                 string(id2),
 				"queue":              "persisted-form-test",
 				"retry_times":        float64(2),
 				"remaining_attempts": float64(3),
@@ -166,6 +173,7 @@ func Test_esTaskService_Create_verifingPersistedForm(t *testing.T) {
 func Test_esTaskService_Create(t *testing.T) {
 	service := buildTasksService()
 	runAt := task.RunAt(time.Now().UTC())
+	customId := task.Id("my-little-task")
 	type args struct {
 		task *task.NewTask
 	}
@@ -220,6 +228,52 @@ func Test_esTaskService_Create(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"create a task with a custom id",
+			args{
+				&task.NewTask{
+					Id:                &customId,
+					Queue:             "anywhere-but-here",
+					RetryTimes:        0,
+					Priority:          task.Priority(0),
+					Kind:              task.Kind("justATest"),
+					ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+					RunAt:             runAt,
+					Args: &task.Args{
+						"something":    "something",
+						"anotherThing": "something",
+					},
+					Context: &task.Context{
+						"reqId": "foobarhogehoge",
+					},
+				},
+			},
+
+			func(got *task.Task) task.Task {
+				return task.Task{
+					ID:                customId,
+					Queue:             "anywhere-but-here",
+					RetryTimes:        0,
+					Priority:          got.Priority,
+					Attempted:         0,
+					Kind:              task.Kind("justATest"),
+					State:             task.QUEUED,
+					RunAt:             runAt,
+					ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+					Args: &task.Args{
+						"something":    "something",
+						"anotherThing": "something",
+					},
+					Context: &task.Context{
+						"reqId": "foobarhogehoge",
+					},
+					LastClaimed:    nil,
+					LastEnqueuedAt: got.LastEnqueuedAt,
+					Metadata:       got.Metadata,
+				}
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		tt := tt // for parallelism
@@ -240,7 +294,7 @@ func Test_esTaskService_Get(t *testing.T) {
 	service := buildTasksService()
 	runAt := task.RunAt(time.Now().UTC())
 
-	toCreate := task.NewTask{
+	toCreate1 := task.NewTask{
 		Queue:             "somewhere-out-there",
 		RetryTimes:        0,
 		Priority:          0,
@@ -256,10 +310,35 @@ func Test_esTaskService_Get(t *testing.T) {
 		},
 	}
 
-	created, err := service.Create(ctx, &toCreate)
+	created1, err := service.Create(ctx, &toCreate1)
 	if err != nil {
 		t.Error(err)
 	}
+
+	customId := task.Id("custom-id-for-task")
+
+	toCreate2 := task.NewTask{
+		Id:                &customId,
+		Queue:             "somewhere-out-there",
+		RetryTimes:        0,
+		Priority:          0,
+		Kind:              task.Kind("justATest"),
+		ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+		RunAt:             runAt,
+		Args: &task.Args{
+			"something":    "something",
+			"anotherThing": "something",
+		},
+		Context: &task.Context{
+			"reqId": "abc123",
+		},
+	}
+
+	created2, err := service.Create(ctx, &toCreate2)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, customId, created2.ID)
 
 	type args struct {
 		queue  queue.Name
@@ -284,10 +363,19 @@ func Test_esTaskService_Get(t *testing.T) {
 		{
 			"get an existent task",
 			args{
-				created.Queue,
-				created.ID,
+				created1.Queue,
+				created1.ID,
 			},
-			created,
+			created1,
+			false,
+		},
+		{
+			"get an existent task with custom Id",
+			args{
+				created2.Queue,
+				customId,
+			},
+			created2,
 			false,
 		},
 	}
@@ -304,6 +392,81 @@ func Test_esTaskService_Get(t *testing.T) {
 			assert.EqualValues(t, want, got)
 		})
 	}
+}
+
+func Test_esTaskService_Create_with_same_id(t *testing.T) {
+	service := buildTasksService()
+	runAt := task.RunAt(time.Now().UTC())
+
+	customId := task.Id("custom-id-for-task")
+
+	toCreate := task.NewTask{
+		Id:                &customId,
+		Queue:             "create-twice-queue",
+		RetryTimes:        0,
+		Priority:          0,
+		Kind:              task.Kind("justATest"),
+		ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+		RunAt:             runAt,
+		Args: &task.Args{
+			"something":    "something",
+			"anotherThing": "something",
+		},
+		Context: &task.Context{
+			"reqId": "abc123",
+		},
+	}
+
+	created, err := service.Create(ctx, &toCreate)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, customId, created.ID)
+
+	// do it again
+	_, err = service.Create(ctx, &toCreate)
+	assert.Error(t, err)
+
+	var AlreadyExists task.AlreadyExists
+	assert.IsType(t, AlreadyExists, err)
+}
+
+func Test_esTaskService_Create_with_same_id_different_queue(t *testing.T) {
+	service := buildTasksService()
+	runAt := task.RunAt(time.Now().UTC())
+
+	customId := task.Id("custom-id-for-task")
+
+	toCreate := task.NewTask{
+		Id:                &customId,
+		Queue:             "some-rando-queue-1",
+		RetryTimes:        0,
+		Priority:          0,
+		Kind:              task.Kind("justATest"),
+		ProcessingTimeout: task.ProcessingTimeout(1 * time.Hour),
+		RunAt:             runAt,
+		Args: &task.Args{
+			"something":    "something",
+			"anotherThing": "something",
+		},
+		Context: &task.Context{
+			"reqId": "abc123",
+		},
+	}
+
+	created, err := service.Create(ctx, &toCreate)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, customId, created.ID)
+
+	// do it again but in a different queue
+	toCreate.Queue = "another-rando-queue"
+	created, err = service.Create(ctx, &toCreate)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.EqualValues(t, customId, created.ID)
 }
 
 func Test_esTaskService_Claim(t *testing.T) {
@@ -1289,9 +1452,34 @@ type esHitPersistedArchivedTask struct {
 }
 
 func getArchivedTask(id task.Id) (*task2.PersistedTaskData, error) {
-	searchReq := esapi.GetRequest{
-		Index:      task2.TasquesArchiveIndex,
-		DocumentID: string(id),
+	searchBody := JsonObj{
+		"size":                1,
+		"seq_no_primary_term": true,
+		"query": JsonObj{
+			"bool": JsonObj{
+				"filter": JsonObj{
+					"bool": JsonObj{
+						"must": []JsonObj{
+							{
+								"term": JsonObj{
+									"id": string(id),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	searchBodyBytes, err := json.Marshal(searchBody)
+	if err != nil {
+		return nil, err
+	}
+
+	searchReq := esapi.SearchRequest{
+		Index:          []string{task2.TasquesArchiveIndex},
+		AllowNoIndices: esapi.BoolPtr(false),
+		Body:           bytes.NewReader(searchBodyBytes),
 	}
 	rawResp, err := searchReq.Do(ctx, esClient)
 	if err != nil {
@@ -1301,13 +1489,15 @@ func getArchivedTask(id task.Id) (*task2.PersistedTaskData, error) {
 
 	switch rawResp.StatusCode {
 	case 200:
-		var response esHitPersistedArchivedTask
+		var response esArchivedSearchResponse
 		if err := json.NewDecoder(rawResp.Body).Decode(&response); err != nil {
 			return nil, common.JsonSerdesErr{Underlying: []error{err}}
 		}
-		return &response.Source, nil
-	case 404:
-		return nil, fmt.Errorf("not found")
+		if len(response.Hits.Hits) > 0 {
+			return &response.Hits.Hits[0].Source, nil
+		} else {
+			return nil, fmt.Errorf("not found")
+		}
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
 	}

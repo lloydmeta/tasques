@@ -147,6 +147,8 @@ func handleErr(err error) *common.ApiError {
 		return notOwnedByWorker(v)
 	case domainTask.InvalidVersion:
 		return versionConflict(v)
+	case domainTask.AlreadyExists:
+		return alreadyExists(v)
 	default:
 		return unhandledErr(v)
 	}
@@ -193,6 +195,15 @@ func versionConflict(versionConflict domainTask.InvalidVersion) *common.ApiError
 		StatusCode: http.StatusConflict,
 		Body: common.Body{
 			Message: versionConflict.Error(),
+		},
+	}
+}
+
+func alreadyExists(alreadyExists domainTask.AlreadyExists) *common.ApiError {
+	return &common.ApiError{
+		StatusCode: http.StatusConflict,
+		Body: common.Body{
+			Message: alreadyExists.Error(),
 		},
 	}
 }

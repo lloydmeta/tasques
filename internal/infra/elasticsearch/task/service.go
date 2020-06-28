@@ -43,7 +43,10 @@ func NewService(client *elasticsearch.Client, settings config.TasksDefaults) tas
 func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Task, error) {
 	indexName := BuildIndexName(newTask.Queue)
 	now := e.getUTC()
+
+	taskId := task.GenerateId(newTask)
 	toPersist := PersistedTaskData{
+		Id:                string(taskId),
 		RetryTimes:        uint(newTask.RetryTimes),
 		Queue:             string(newTask.Queue),
 		RemainingAttempts: uint(newTask.RetryTimes + 1), // even with 0 retries, we want 1 attempt
@@ -68,7 +71,6 @@ func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Ta
 		return nil, common.JsonSerdesErr{Underlying: []error{err}}
 	}
 
-	taskId := task.GenerateId()
 	indexReq := esapi.CreateRequest{
 		DocumentID: string(taskId),
 		Index:      string(indexName),
@@ -87,10 +89,10 @@ func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Ta
 		if err := json.NewDecoder(rawResp.Body).Decode(&response); err != nil {
 			return nil, common.JsonSerdesErr{Underlying: []error{err}}
 		}
-		taskId := taskId
-
-		domainTask := toPersist.toDomainTask(taskId, response.Version())
+		domainTask := toPersist.toDomainTask(response.Version())
 		return &domainTask, nil
+	case statusCode == 409:
+		return nil, task.AlreadyExists{ID: taskId}
 	default:
 		return nil, common.UnexpectedEsStatusError(rawResp)
 	}
@@ -745,7 +747,6 @@ func buildTaskArchival(t *task.Task) bulkTaskArchival {
 		insertArchiveTaskOp: insertArchivedTaskOpPair{
 			op: insertArchivedTaskOp{
 				Index: insertArchivedTaskOpData{
-					Id:    string(t.ID),
 					Index: TasquesArchiveIndex,
 				},
 			},
@@ -757,6 +758,7 @@ func buildTaskArchival(t *task.Task) bulkTaskArchival {
 // Private persistence doc structures based entirely on basic types for ease of guaranteeing serdes.
 
 type PersistedTaskData struct {
+	Id         string `json:"id"`
 	Queue      string `json:"queue"`
 	RetryTimes uint   `json:"retry_times"`
 	// This doesn't map to the domain model 1:1 because storing _attempts_ instead of retires
@@ -795,7 +797,7 @@ type persistedResult struct {
 	Success *jsonObjMap `json:"success,omitempty"`
 }
 
-func (pTask *PersistedTaskData) toDomainTask(taskId task.Id, version metadata.Version) task.Task {
+func (pTask *PersistedTaskData) toDomainTask(version metadata.Version) task.Task {
 	var domainLastClaimed *task.LastClaimed
 	if pTask.LastClaimed != nil {
 		var result *task.Result
@@ -823,7 +825,7 @@ func (pTask *PersistedTaskData) toDomainTask(taskId task.Id, version metadata.Ve
 	}
 
 	return task.Task{
-		ID:                taskId,
+		ID:                task.Id(pTask.Id),
 		Queue:             queue.Name(pTask.Queue),
 		RetryTimes:        task.RetryTimes(pTask.RetryTimes),
 		Attempted:         task.AttemptedTimes(pTask.RetryTimes + 1 - pTask.RemainingAttempts),
@@ -848,7 +850,7 @@ func (pTask *PersistedTaskData) toDomainTask(taskId task.Id, version metadata.Ve
 func (resp *esHitPersistedTask) ToDomainTask() task.Task {
 	pTask := resp.Source
 
-	return pTask.toDomainTask(task.Id(resp.ID), metadata.Version{
+	return pTask.toDomainTask(metadata.Version{
 		SeqNum:      metadata.SeqNum(resp.SeqNum),
 		PrimaryTerm: metadata.PrimaryTerm(resp.PrimaryTerm),
 	})
@@ -884,6 +886,7 @@ func ToPersistedTask(task *task.Task) PersistedTaskData {
 	}
 
 	return PersistedTaskData{
+		Id:                string(task.ID),
 		RetryTimes:        uint(task.RetryTimes),
 		Queue:             string(task.Queue),
 		RemainingAttempts: uint(task.RetryTimes) + 1 - uint(task.Attempted),
@@ -1026,7 +1029,6 @@ type insertArchivedTaskOp struct {
 }
 
 type insertArchivedTaskOpData struct {
-	Id    string `json:"_id"`
 	Index string `json:"_index"`
 }
 

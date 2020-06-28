@@ -302,21 +302,32 @@ func TestTask_IntoClaimed(t1 *testing.T) {
 }
 
 func TestGenerateId(t *testing.T) {
+	expectedId := Id("lol")
 	tests := []struct {
-		name  string
-		check func(id Id)
+		name    string
+		newTask NewTask
+		check   func(id Id)
 	}{
 		{
-			"should not have hyphens",
-			func(id Id) {
-
+			name:    "should not have hyphens",
+			newTask: NewTask{},
+			check: func(id Id) {
 				assert.NotContains(t, string(id), "-")
+			},
+		},
+		{
+			name: "should not have hyphens",
+			newTask: NewTask{
+				Id: &expectedId,
+			},
+			check: func(id Id) {
+				assert.EqualValues(t, id, expectedId)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.check(GenerateId())
+			tt.check(GenerateId(&tt.newTask))
 		})
 	}
 }

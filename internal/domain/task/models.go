@@ -20,8 +20,16 @@ type JsonObj map[string]interface{}
 // Id for a task that has been persisted
 type Id string
 
+// Generates a random id if the NewTask passed does not have one
+func GenerateId(task *NewTask) Id {
+	if task.Id == nil {
+		return GenerateNewId()
+	}
+	return *task.Id
+}
+
 // Generates a random id
-func GenerateId() Id {
+func GenerateNewId() Id {
 	return Id(strings.ReplaceAll(uuid.New().String(), "-", ""))
 }
 
@@ -53,6 +61,8 @@ type RemainingAttempts uint
 
 // A Task that has yet to be created
 type NewTask struct {
+	// Optional id key for idempotency (if not supplied, a generated UUID is used as task Id)
+	Id                *Id
 	Queue             queue.Name
 	RetryTimes        RetryTimes
 	Kind              Kind
