@@ -25,6 +25,7 @@ Why use ES as a Tasks data store? It's horizontally scalable, highly-available, 
 - Idempotency
 - Recurring Tasks that are repeatedly enqueued at configurable intervals (cron format with basic macro support à la 
   `@every 1m`)
+  - Also supports skipping if outstanding Tasks exist for a given Recurring Task
 - Timeouts for Tasks that are picked up by Workers but either don't report in or finish on time.
 - Archiving of completed Tasks (DONE or DEAD), also configurable
   - If Index Lifecycle Management (ILM) is enabled (default), the archive index is set to roll over automatically for 
