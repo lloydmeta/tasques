@@ -36,7 +36,7 @@ spec:
         image: busybox:1.28
         command: ['sh', '-c', 'until wget -q --spider http://tasques-apm-http:8200; do echo waiting for tasques-apm-http; sleep 2; done;']
       - name: tasques-setup
-        image: "lloydmeta/tasques:latest"
+        image: "lloydmeta/tasques:5d04f8cb41c08048dd440e885564e6d9c6229bc3"
         command: ["/app/bin/tasques", "setup"]
         env:
         - name: GIN_MODE
@@ -71,7 +71,7 @@ spec:
           value: debug
       containers:
       - name: tasques
-        image: "lloydmeta/tasques:latest"
+        image: "lloydmeta/tasques:5d04f8cb41c08048dd440e885564e6d9c6229bc3"
         env:
         - name: GIN_MODE
           value: release
@@ -102,4 +102,4 @@ spec:
         - name: TASQUES_SERVER_LOGGING
           value: null
         - name: TASQUES_SERVER_LOGGING_LEVEL
-          value: info
+          value: debug
