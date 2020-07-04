@@ -40,6 +40,18 @@ tasques:
         - name: user
           password: passw0rd
     tasks:
+      queues:
+        # In order to optimise around calling the ES Index refresh API, we keep track of which Queues have recently been
+        # touched by ops that would keep its ES Index fresh.
+        #
+        # This is the max number of Queues that we will track at a given point in time.
+        recently_touched_queues_tracker_max_size: 1000
+        # If a Queue hasn't been touched in over _this_ much time by a given process, a call to refresh the Queue
+        # will result in actually Refreshing that Queue's indices.
+        #
+        # This is mostly an implementation detail around finding outstanding Tasks for scheduling / not scheduling
+        # Recurring Tasks that you don't need to worry too much about unless if you are using that feature
+        refresh_if_last_touched_over: 30s
       defaults:
         # Default block_for for claims
         block_for: 3s
@@ -57,12 +69,6 @@ tasques:
         retry_times: 25
         # Number of times to try to atomically update a Task when encountering a version conflict
         version_conflict_retry_times: 500
-        # If a Queue hasn't been touched in over _this_ much time by a given process, a call to refresh the Queue
-        # will result in actually Refreshing that Queue's indices.
-        #
-        # This is mostly an implementation detail around finding outstanding Tasks for scheduling / not scheduling
-        # Recurring Tasks that you don't need to worry too much about unless if you are using that feature
-        queue_refresh_if_last_touched_over: 1m
     recurring: # Settings for recurring server side functions
       # Settings for the leader lock functionalit
       leader_lock:

@@ -26,12 +26,9 @@ import (
 var TasquesQueuePrefix = ".tasques_queue-"
 var TasquesArchiveIndex = ".tasques_archive"
 
-// a hard-coded reasonable default...
-const MaxQueueRefreshTrackerSize = 10000
-
 type EsService struct {
 	client   *elasticsearch.Client
-	settings config.TasksDefaults
+	settings config.Tasks
 
 	mu sync.Mutex
 	// This is an thread-unsafe cache, all access needs to be wrapped via the above mutex
@@ -45,8 +42,16 @@ func (e *EsService) SetUTCGetter(getter func() time.Time) {
 	e.getUTC = getter
 }
 
-func NewService(client *elasticsearch.Client, settings config.TasksDefaults) task.Service {
-	queueToLastTouchedTimes := lru.New(MaxQueueRefreshTrackerSize)
+func (e *EsService) tasksDefaultsSettings() *config.TasksDefaults {
+	return &e.settings.Defaults
+}
+
+func (e *EsService) queuesSettings() *config.Queues {
+	return &e.settings.Queues
+}
+
+func NewService(client *elasticsearch.Client, settings config.Tasks) task.Service {
+	queueToLastTouchedTimes := lru.New(int(settings.Queues.LastActivityTrackerMaxSize))
 	return &EsService{
 		client:                  client,
 		settings:                settings,
@@ -174,9 +179,9 @@ func (e *EsService) Claim(ctx context.Context, workerId worker.Id, queues []queu
 //
 // In all cases, the min claim retry wait is respected, so as to not flood the ES server with requests.
 func (e *EsService) retryWait(reqBlockFor time.Duration) time.Duration {
-	retryWait := e.settings.BlockForRetryMinWait
-	if e.settings.BlockForRetryMaxRetries > 0 {
-		evenRetryWait := time.Duration(uint64(reqBlockFor.Nanoseconds())/uint64(e.settings.BlockForRetryMaxRetries)) * time.Nanosecond
+	retryWait := e.tasksDefaultsSettings().BlockForRetryMinWait
+	if e.tasksDefaultsSettings().BlockForRetryMaxRetries > 0 {
+		evenRetryWait := time.Duration(uint64(reqBlockFor.Nanoseconds())/uint64(e.tasksDefaultsSettings().BlockForRetryMaxRetries)) * time.Nanosecond
 		if evenRetryWait > retryWait {
 			retryWait = evenRetryWait
 		}
@@ -194,7 +199,7 @@ func (e *EsService) ReportIn(ctx context.Context, workerId worker.Id, queue queu
 	}
 	result, err := runUpdate()
 	timesRetried := uint(0)
-	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.settings.VersionConflictRetryTimes {
+	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.tasksDefaultsSettings().VersionConflictRetryTimes {
 		timesRetried++
 		result, err = runUpdate()
 	}
@@ -222,7 +227,7 @@ func (e *EsService) UnClaim(ctx context.Context, workerId worker.Id, queue queue
 	}
 	result, err := runUpdate()
 	timesRetried := uint(0)
-	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.settings.VersionConflictRetryTimes {
+	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.tasksDefaultsSettings().VersionConflictRetryTimes {
 		timesRetried++
 		result, err = runUpdate()
 	}
@@ -457,13 +462,13 @@ func (e *EsService) needsRefreshing(name queue.Name) bool {
 		if lastTouched, ok := lastTouchedInterface.(time.Time); ok {
 			now := e.getUTC()
 			diff := now.Sub(lastTouched)
-			needsRefresh := diff > e.settings.QueueRefreshIfLastTouchedOver
+			needsRefresh := diff > e.queuesSettings().RefreshIfLastTouchedOver
 			if log.Debug().Enabled() {
 				log.Debug().
 					Str("queue", string(name)).
 					Time("now", now).
 					Time("lastTouched", lastTouched).
-					Dur("shouldRefreshIfDiffBiggerThan", e.settings.QueueRefreshIfLastTouchedOver).
+					Dur("shouldRefreshIfDiffBiggerThan", e.queuesSettings().RefreshIfLastTouchedOver).
 					Dur("diff", diff).
 					Bool("needsRefresh", needsRefresh).
 					Msg("Check if queue needs refreshing")
@@ -495,7 +500,7 @@ func (e *EsService) markComplete(ctx context.Context, workerId worker.Id, queue 
 	}
 	result, err := runUpdate()
 	timesRetried := uint(0)
-	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.settings.VersionConflictRetryTimes {
+	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.tasksDefaultsSettings().VersionConflictRetryTimes {
 		timesRetried++
 		result, err = runUpdate()
 	}
@@ -575,7 +580,7 @@ func (e *EsService) searchAndClaim(ctx context.Context, workerId worker.Id, queu
 	var claimed []task.Task
 
 	// Search for unclaimed Tasks
-	searchLimit := e.settings.ClaimAmountSearchMultiplier * desiredTasks
+	searchLimit := e.tasksDefaultsSettings().ClaimAmountSearchMultiplier * desiredTasks
 	var searchResults []task.Task
 	var err error
 	firstTry := true

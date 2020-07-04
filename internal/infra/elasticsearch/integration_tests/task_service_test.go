@@ -25,16 +25,21 @@ import (
 func buildTasksService() task.Service {
 	return task2.NewService(
 		esClient,
-		config.TasksDefaults{
-			BlockFor:                      3 * time.Second,
-			BlockForRetryMinWait:          10 * time.Millisecond,
-			BlockForRetryMaxRetries:       100,
-			WorkerProcessingTimeout:       15 * time.Minute,
-			ClaimAmount:                   5,
-			ClaimAmountSearchMultiplier:   5,
-			RetryTimes:                    50,
-			VersionConflictRetryTimes:     500,
-			QueueRefreshIfLastTouchedOver: 30 * time.Second,
+		config.Tasks{
+			Queues: config.Queues{
+				LastActivityTrackerMaxSize: 1000,
+				RefreshIfLastTouchedOver:   30 * time.Second,
+			},
+			Defaults: config.TasksDefaults{
+				BlockFor:                    3 * time.Second,
+				BlockForRetryMinWait:        10 * time.Millisecond,
+				BlockForRetryMaxRetries:     100,
+				WorkerProcessingTimeout:     15 * time.Minute,
+				ClaimAmount:                 5,
+				ClaimAmountSearchMultiplier: 5,
+				RetryTimes:                  50,
+				VersionConflictRetryTimes:   500,
+			},
 		},
 	)
 }

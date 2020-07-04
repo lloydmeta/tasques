@@ -46,18 +46,23 @@ type ApmClient struct {
 
 type Tasks struct {
 	Defaults TasksDefaults `json:"defaults" mapstructure:"defaults"`
+	Queues   Queues        `json:"queues" mapstructure:"queues"`
+}
+
+type Queues struct {
+	LastActivityTrackerMaxSize uint          `json:"last_activity_tracker_max_size" mapstructure:"last_activity_tracker_max_size"`
+	RefreshIfLastTouchedOver   time.Duration `json:"refresh_if_last_touched_over" mapstructure:"refresh_if_last_touched_over"`
 }
 
 type TasksDefaults struct {
-	BlockFor                      time.Duration `json:"block_for" mapstructure:"block_for"`
-	BlockForRetryMinWait          time.Duration `json:"block_for_retry_min_wait" mapstructure:"block_for_retry_min_wait"`
-	BlockForRetryMaxRetries       uint          `json:"block_for_retry_max_retries" mapstructure:"block_for_retry_max_retries"`
-	WorkerProcessingTimeout       time.Duration `json:"worker_processing_timeout" mapstructure:"worker_processing_timeout"`
-	ClaimAmount                   uint          `json:"claim_amount" mapstructure:"claim_amount"`
-	ClaimAmountSearchMultiplier   uint          `json:"claim_amount_search_multiplier" mapstructure:"claim_amount_search_multiplier"`
-	RetryTimes                    uint          `json:"retry_times" mapstructure:"retry_times"`
-	VersionConflictRetryTimes     uint          `json:"version_conflict_retry_times" mapstructure:"version_conflict_retry_times"`
-	QueueRefreshIfLastTouchedOver time.Duration `json:"queue_refresh_if_last_touched_over" mapstructure:"queue_refresh_if_last_touched_over"`
+	BlockFor                    time.Duration `json:"block_for" mapstructure:"block_for"`
+	BlockForRetryMinWait        time.Duration `json:"block_for_retry_min_wait" mapstructure:"block_for_retry_min_wait"`
+	BlockForRetryMaxRetries     uint          `json:"block_for_retry_max_retries" mapstructure:"block_for_retry_max_retries"`
+	WorkerProcessingTimeout     time.Duration `json:"worker_processing_timeout" mapstructure:"worker_processing_timeout"`
+	ClaimAmount                 uint          `json:"claim_amount" mapstructure:"claim_amount"`
+	ClaimAmountSearchMultiplier uint          `json:"claim_amount_search_multiplier" mapstructure:"claim_amount_search_multiplier"`
+	RetryTimes                  uint          `json:"retry_times" mapstructure:"retry_times"`
+	VersionConflictRetryTimes   uint          `json:"version_conflict_retry_times" mapstructure:"version_conflict_retry_times"`
 }
 
 type TimedOutTasksReaper struct {
