@@ -71,7 +71,7 @@ func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Ta
 		Id:                string(taskId),
 		RetryTimes:        uint(newTask.RetryTimes),
 		Queue:             string(newTask.Queue),
-		RemainingAttempts: uint(newTask.RetryTimes + 1), // even with 0 retries, we want 1 attempt
+		RemainingAttempts: uint(newTask.RetryTimes) + 1, // even with 0 retries, we want 1 attempt
 		Kind:              string(newTask.Kind),
 		State:             task.QUEUED,
 		RunAt:             (time.Time)(newTask.RunAt),
@@ -207,13 +207,13 @@ func (e *EsService) ReportIn(ctx context.Context, workerId worker.Id, queue queu
 }
 
 func (e *EsService) MarkDone(ctx context.Context, workerId worker.Id, queue queue.Name, taskId task.Id, success *task.Success) (*task.Task, error) {
-	return e.markComplete(ctx, workerId, queue, taskId, func(targetTask *task.Task, at task.CompletedAt) error {
+	return e.markComplete(ctx, queue, taskId, func(targetTask *task.Task, at task.CompletedAt) error {
 		return targetTask.IntoDone(workerId, at, success)
 	})
 }
 
 func (e *EsService) MarkFailed(ctx context.Context, workerId worker.Id, queue queue.Name, taskId task.Id, failure *task.Failure) (*task.Task, error) {
-	return e.markComplete(ctx, workerId, queue, taskId, func(targetTask *task.Task, at task.CompletedAt) error {
+	return e.markComplete(ctx, queue, taskId, func(targetTask *task.Task, at task.CompletedAt) error {
 		return targetTask.IntoFailed(workerId, at, failure)
 	})
 }
@@ -405,9 +405,8 @@ func (e *EsService) RefreshAsNeeded(ctx context.Context, name queue.Name) error 
 	}
 }
 
-func (e *EsService) OutstandingTasksCount(ctx context.Context, queue queue.Name) (uint, error) {
-	now := e.getUTC()
-	searchBody := buildOutstandingTasksCountQuery(now)
+func (e *EsService) OutstandingTasksCount(ctx context.Context, queue queue.Name, recurringTaskId task.RecurringTaskId) (uint, error) {
+	searchBody := buildOutstandingTasksCountQuery(recurringTaskId)
 	searchBodyBytes, err := json.Marshal(searchBody)
 	if err != nil {
 		return 0, common.JsonSerdesErr{Underlying: []error{err}}
@@ -490,7 +489,7 @@ func (e *EsService) needsRefreshing(name queue.Name) bool {
 }
 
 // Helper to mark a task as completed (success or failed)
-func (e *EsService) markComplete(ctx context.Context, workerId worker.Id, queue queue.Name, taskId task.Id, mutate func(task *task.Task, at task.CompletedAt) error) (*task.Task, error) {
+func (e *EsService) markComplete(ctx context.Context, queue queue.Name, taskId task.Id, mutate func(task *task.Task, at task.CompletedAt) error) (*task.Task, error) {
 	runUpdate := func() (*task.Task, error) {
 		// unlike reporting in, when completing, we always try to complete it with a newer date because it
 		// should be the last thing that happened
@@ -1272,26 +1271,16 @@ func buildArchivableSearchBody(archiveFinishedBefore time.Time, pageSize uint) j
 	}
 }
 
-func buildOutstandingTasksCountQuery(nowUtc time.Time) jsonObjMap {
+func buildOutstandingTasksCountQuery(recurringTaskId task.RecurringTaskId) jsonObjMap {
 	return jsonObjMap{
 		"query": jsonObjMap{
 			"bool": jsonObjMap{
 				"filter": jsonObjMap{
 					"bool": jsonObjMap{
 						"must": []jsonObjMap{
-							// DO NOT add a requirement that LastClaimed is empty without updating UnClaim
 							{
-								"range": jsonObjMap{
-									"run_at": jsonObjMap{
-										"lte": nowUtc.Format(time.RFC3339Nano),
-									},
-								},
-							},
-							{
-								"range": jsonObjMap{
-									"remaining_attempts": jsonObjMap{
-										"gt": 0,
-									},
+								"term": jsonObjMap{
+									"recurring_task_id": string(recurringTaskId),
 								},
 							},
 							{

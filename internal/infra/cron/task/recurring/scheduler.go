@@ -77,7 +77,7 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 					Str("queue", string(taskQueue)).
 					Msg("Failed to refresh Queue for Recurring Task before looking for outstanding Tasks, proceeding with search")
 			}
-			outstandingTasksCount, err := i.tasksService.OutstandingTasksCount(ctx, taskQueue)
+			outstandingTasksCount, err := i.tasksService.OutstandingTasksCount(ctx, taskQueue, task.ID)
 			if err != nil {
 				log.Error().
 					Err(err).

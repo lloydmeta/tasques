@@ -128,7 +128,7 @@ func (m *MockTasksService) RefreshAsNeeded(ctx context.Context, name queue.Name)
 	}
 }
 
-func (m *MockTasksService) OutstandingTasksCount(ctx context.Context, name queue.Name) (uint, error) {
+func (m *MockTasksService) OutstandingTasksCount(ctx context.Context, name queue.Name, id RecurringTaskId) (uint, error) {
 	m.OutstandingTasksCountCalled++
 	if m.OutstandingTasksCountOverride != nil {
 		return m.OutstandingTasksCountOverride()

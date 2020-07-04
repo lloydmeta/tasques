@@ -83,10 +83,10 @@ type Service interface {
 	// the strain on the server, but can be improved later if the count is shared somehow.
 	RefreshAsNeeded(ctx context.Context, queue queue.Name) error
 
-	// Counts the number of outstanding Tasks in the given Queue
+	// Counts the number of outstanding Tasks in the given Queue that belong to a given RecurringTaskId
 	//
 	// Outstanding means not DONE or DEAD that are runnable
-	OutstandingTasksCount(ctx context.Context, queue queue.Name) (uint, error)
+	OutstandingTasksCount(ctx context.Context, queue queue.Name, recurringTaskId RecurringTaskId) (uint, error)
 }
 
 // <-- Domain Errors
