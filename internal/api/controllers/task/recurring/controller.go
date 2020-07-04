@@ -65,6 +65,9 @@ func (c *impl) Update(ctx context.Context, id task.RecurringTaskId, task *recurr
 		if task.TaskDefinition != nil {
 			toUpdate.TaskDefinition = task.TaskDefinition.ToDomainTaskDefinition(c.tasksConfig.RetryTimes, c.tasksConfig.WorkerProcessingTimeout)
 		}
+		if task.SkipIfOutstandingTasksExist != nil {
+			toUpdate.SkipIfOutstandingTasksExist = *task.SkipIfOutstandingTasksExist
+		}
 		updated, err := c.recurringTasksService.Update(ctx, toUpdate)
 		if err != nil {
 			return nil, handleErr(err)

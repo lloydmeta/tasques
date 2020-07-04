@@ -58,6 +58,12 @@ type TaskUpdate struct {
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	// If not defined, reuses the existing one on the recurring Task
 	ScheduleExpression *recurring.ScheduleExpression `json:"schedule_expression,omitempty" binding:"omitempty,scheduleExpression" example:"@every 1m"`
+	// Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
+	// that belong to this Recurring Task.
+	//
+	// If a Recurring Tasks skips scheduling because of outstanding Tasks, we will wait until its *next* scheduled
+	// time slot (according to its schedule expression) before re-attempting to schedule.
+	SkipIfOutstandingTasksExist *bool `json:"skip_if_outstanding_tasks_exist" default:"false"`
 	// The Task to insert at intervals defined by ScheduleExpression
 	// If not defined, reuses the existing one on the recurring Task
 	TaskDefinition *TaskDefinition `json:"task_definition,omitempty"`

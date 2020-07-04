@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/stretchr/testify/assert"
 
 	apiRecurring "github.com/lloydmeta/tasques/internal/api/models/task/recurring"
@@ -161,6 +162,7 @@ func Test_impl_Update(t *testing.T) {
 						Queue: "q",
 						Kind:  "k",
 					},
+					SkipIfOutstandingTasksExist: esapi.BoolPtr(true),
 				},
 			},
 			want:    &mockApiRecurringTask,
