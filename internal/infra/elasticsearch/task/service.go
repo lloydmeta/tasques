@@ -1280,7 +1280,15 @@ func buildOutstandingTasksCountQuery(nowUtc time.Time) jsonObjMap {
 										"lte": nowUtc.Format(time.RFC3339Nano),
 									},
 								},
-							}, {
+							},
+							{
+								"range": jsonObjMap{
+									"remaining_attempts": jsonObjMap{
+										"gt": 0,
+									},
+								},
+							},
+							{
 								"bool": jsonObjMap{
 									"should": []jsonObjMap{
 										{
