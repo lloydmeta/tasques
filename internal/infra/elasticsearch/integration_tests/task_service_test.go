@@ -1391,7 +1391,6 @@ func Test_esTaskService_ArchiveOldTasks(t *testing.T) {
 }
 
 func Test_esTaskService_RefreshAsNeeded_Non_existent_Queue(t *testing.T) {
-
 	service := buildTasksService()
 
 	err := service.RefreshAsNeeded(ctx, "some-task-queue-that-doesnt-exist")
@@ -1399,14 +1398,74 @@ func Test_esTaskService_RefreshAsNeeded_Non_existent_Queue(t *testing.T) {
 }
 
 func Test_esTaskService_RefreshAsNeeded_existent_Queue(t *testing.T) {
-
 	service := buildTasksService()
+
 	queueToSeed := queue.Name("some-queue-that-will-exist-tasks-to-expire")
 	seeded := seedClaimedTasks(t, service, 10, queueToSeed, 10)
 	assert.Greater(t, len(seeded), 0)
 
 	err := service.RefreshAsNeeded(ctx, queueToSeed)
 	assert.NoError(t, err)
+}
+
+func Test_esTaskService_Non_existent_Queue(t *testing.T) {
+	service := buildTasksService()
+	queueName := queue.Name("some-queue-that-does-not-exist")
+	count, err := service.OutstandingTasksCount(ctx, queueName)
+	assert.NoError(t, err)
+	assert.EqualValues(t, 0, count)
+}
+
+func Test_esTaskService_Queue_with_outstanding_tasks(t *testing.T) {
+	service := buildTasksService()
+	queueName := queue.Name("some-queue-that-will-have-tasks")
+
+	newTasksCount := 10
+	seedTasks(t, service, newTasksCount, queueName, 10)
+
+	assert.Eventually(t, func() bool {
+		err := service.RefreshAsNeeded(ctx, queueName)
+		assert.NoError(t, err)
+		count, err := service.OutstandingTasksCount(ctx, queueName)
+		assert.NoError(t, err)
+		t.Logf("Count %v", count)
+		return uint(newTasksCount) == count
+	}, 10*time.Second, 100*time.Millisecond, "The New Tasks should be counted as outstanding")
+
+	claimedTasksCount := 10
+	seededClaimedTasks := seedClaimedTasks(t, service, claimedTasksCount, queueName, 0)
+
+	assert.Eventually(t, func() bool {
+		err := service.RefreshAsNeeded(ctx, queueName)
+		assert.NoError(t, err)
+		count, err := service.OutstandingTasksCount(ctx, queueName)
+		assert.NoError(t, err)
+		t.Logf("Count %v", count)
+		return uint(newTasksCount+claimedTasksCount) == count
+	}, 10*time.Second, 100*time.Millisecond, "The New Tasks *and* Claimed Tasks should be counted as outstanding")
+
+	for idx, claimedTask := range seededClaimedTasks {
+		if idx%2 == 0 {
+			_, err := service.MarkFailed(ctx, workerId, claimedTask.Queue, claimedTask.ID, nil)
+			if err != nil {
+				t.Error(err)
+			}
+		} else {
+			_, err := service.MarkDone(ctx, workerId, claimedTask.Queue, claimedTask.ID, nil)
+			if err != nil {
+				t.Error(err)
+			}
+		}
+
+		assert.Eventually(t, func() bool {
+			err := service.RefreshAsNeeded(ctx, queueName)
+			assert.NoError(t, err)
+			count, err := service.OutstandingTasksCount(ctx, queueName)
+			assert.NoError(t, err)
+			t.Logf("Count %v", count)
+			return uint(newTasksCount+claimedTasksCount-(idx+1)) == count
+		}, 10*time.Second, 100*time.Millisecond, "The number of Outstanding Tasks should decrease as Tasks get Done or Failed unretryably")
+	}
 }
 
 var seededProcessingTimeout = 15 * time.Minute

@@ -400,6 +400,37 @@ func (e *EsService) RefreshAsNeeded(ctx context.Context, name queue.Name) error 
 	}
 }
 
+func (e *EsService) OutstandingTasksCount(ctx context.Context, queue queue.Name) (uint, error) {
+	now := e.getUTC()
+	searchBody := buildOutstandingTasksCountQuery(now)
+	searchBodyBytes, err := json.Marshal(searchBody)
+	if err != nil {
+		return 0, common.JsonSerdesErr{Underlying: []error{err}}
+	}
+
+	countRequest := esapi.CountRequest{
+		Index:             []string{string(BuildIndexName(queue))},
+		Body:              bytes.NewReader(searchBodyBytes),
+		AllowNoIndices:    esapi.BoolPtr(true),
+		IgnoreUnavailable: esapi.BoolPtr(true),
+	}
+	rawResp, err := countRequest.Do(ctx, e.client)
+	if err != nil {
+		return 0, common.ElasticsearchErr{Underlying: err}
+	}
+	defer rawResp.Body.Close()
+	switch rawResp.StatusCode {
+	case 200:
+		var countResp common.EsCountResponse
+		if err := json.NewDecoder(rawResp.Body).Decode(&countResp); err != nil {
+			return 0, common.JsonSerdesErr{Underlying: []error{err}}
+		}
+		return countResp.Count, nil
+	default:
+		return 0, common.UnexpectedEsStatusError(rawResp)
+	}
+}
+
 func (e *EsService) markTouched(name queue.Name) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -1222,6 +1253,49 @@ func buildArchivableSearchBody(archiveFinishedBefore time.Time, pageSize uint) j
 										{
 											"term": jsonObjMap{
 												"state": task.DEAD.String(),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildOutstandingTasksCountQuery(nowUtc time.Time) jsonObjMap {
+	return jsonObjMap{
+		"query": jsonObjMap{
+			"bool": jsonObjMap{
+				"filter": jsonObjMap{
+					"bool": jsonObjMap{
+						"must": []jsonObjMap{
+							// DO NOT add a requirement that LastClaimed is empty without updating UnClaim
+							{
+								"range": jsonObjMap{
+									"run_at": jsonObjMap{
+										"lte": nowUtc.Format(time.RFC3339Nano),
+									},
+								},
+							}, {
+								"bool": jsonObjMap{
+									"should": []jsonObjMap{
+										{
+											"term": jsonObjMap{
+												"state": task.QUEUED.String(), // just queued
+											},
+										},
+										{
+											"term": jsonObjMap{
+												"state": task.FAILED.String(), // we can retry
+											},
+										},
+										{
+											"term": jsonObjMap{
+												"state": task.CLAIMED.String(), // is claimed
 											},
 										},
 									},
