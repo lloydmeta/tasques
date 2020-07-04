@@ -48,6 +48,9 @@ definitions:
         description: |-
           Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
           that belong to this Recurring Task.
+
+          If a Recurring Tasks skips scheduling because of outstanding Tasks, we will wait until its *next* scheduled
+          time slot (according to its schedule expression) before re-attempting to schedule.
         type: boolean
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'
@@ -84,6 +87,9 @@ definitions:
         description: |-
           Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
           that belong to this Recurring Task.
+
+          If a Recurring Tasks skips scheduling because of outstanding Tasks, we will wait until its *next* scheduled
+          time slot (according to its schedule expression) before re-attempting to schedule.
         type: boolean
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'

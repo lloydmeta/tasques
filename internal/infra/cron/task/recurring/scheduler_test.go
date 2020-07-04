@@ -61,16 +61,19 @@ func Test_schedulerImpl_Schedule(t *testing.T) {
 		assert.True(t, taskIdPresent)
 	}
 	scheduler.Stop()
+	assert.EqualValues(t, 0, tasksService.RefreshAsNeededCalled)
+	assert.EqualValues(t, 0, tasksService.OutstandingTasksCountCalled)
 }
 
 func Test_schedulerImpl_Schedule_skipIfOutstandingTasksExist(t *testing.T) {
 	taskToSchedule := recurring.Task{
-		ID:                 "send-me-an-int",
-		ScheduleExpression: "@every 1s",
-		TaskDefinition:     recurring.TaskDefinition{},
-		IsDeleted:          false,
-		LoadedAt:           nil,
-		Metadata:           metadata.Metadata{},
+		ID:                          "send-me-an-int",
+		ScheduleExpression:          "@every 1s",
+		SkipIfOutstandingTasksExist: true,
+		TaskDefinition:              recurring.TaskDefinition{},
+		IsDeleted:                   false,
+		LoadedAt:                    nil,
+		Metadata:                    metadata.Metadata{},
 	}
 	tasksService := task.MockTasksService{
 		CreateOverride: func() (t *task.Task, err error) {
@@ -95,10 +98,10 @@ func Test_schedulerImpl_Schedule_skipIfOutstandingTasksExist(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	scheduler.Stop()
 	time.Sleep(5 * time.Second)
-	assert.GreaterOrEqual(t, uint(1), tasksService.RefreshAsNeededCalled)
-	assert.GreaterOrEqual(t, uint(1), tasksService.OutstandingTasksCountCalled)
+	scheduler.Stop()
+	assert.GreaterOrEqual(t, tasksService.RefreshAsNeededCalled, uint(1))
+	assert.GreaterOrEqual(t, tasksService.OutstandingTasksCountCalled, uint(1))
 	assert.EqualValues(t, 0, tasksService.CreateCalled)
 	// It should nonetheless be scheduled
 	_, taskIdPresent := scheduler.idsToEntryIds[taskToSchedule.ID]
