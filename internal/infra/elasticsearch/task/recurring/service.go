@@ -535,20 +535,22 @@ type persistedRecurringTaskTaskDefinitionData struct {
 }
 
 type persistedRecurringTaskData struct {
-	ScheduleExpression string                                   `json:"schedule_expression"`
-	TaskDefinition     persistedRecurringTaskTaskDefinitionData `json:"task_definition"`
-	IsDeleted          bool                                     `json:"is_deleted"`
-	LoadedAt           *time.Time                               `json:"loaded_at,omitempty"`
-	Metadata           common.PersistedMetadata                 `json:"metadata"`
+	ScheduleExpression          string                                   `json:"schedule_expression"`
+	SkipIfOutstandingTasksExist bool                                     `json:"skip_if_outstanding_tasks_exist"`
+	TaskDefinition              persistedRecurringTaskTaskDefinitionData `json:"task_definition"`
+	IsDeleted                   bool                                     `json:"is_deleted"`
+	LoadedAt                    *time.Time                               `json:"loaded_at,omitempty"`
+	Metadata                    common.PersistedMetadata                 `json:"metadata"`
 }
 
 func (e *EsService) newToPersistable(task *recurring.NewTask) persistedRecurringTaskData {
 	now := e.getUTC()
 	return persistedRecurringTaskData{
-		ScheduleExpression: string(task.ScheduleExpression),
-		TaskDefinition:     domainTaskDefToPersistable(&task.TaskDefinition),
-		IsDeleted:          false,
-		LoadedAt:           nil,
+		ScheduleExpression:          string(task.ScheduleExpression),
+		SkipIfOutstandingTasksExist: task.SkipIfOutstandingTasksExist,
+		TaskDefinition:              domainTaskDefToPersistable(&task.TaskDefinition),
+		IsDeleted:                   false,
+		LoadedAt:                    nil,
 		Metadata: common.PersistedMetadata{
 			CreatedAt:  now,
 			ModifiedAt: now,
@@ -558,10 +560,11 @@ func (e *EsService) newToPersistable(task *recurring.NewTask) persistedRecurring
 
 func domainToPersistable(task *recurring.Task, at metadata.ModifiedAt) persistedRecurringTaskData {
 	return persistedRecurringTaskData{
-		ScheduleExpression: string(task.ScheduleExpression),
-		TaskDefinition:     domainTaskDefToPersistable(&task.TaskDefinition),
-		IsDeleted:          bool(task.IsDeleted),
-		LoadedAt:           (*time.Time)(task.LoadedAt),
+		ScheduleExpression:          string(task.ScheduleExpression),
+		SkipIfOutstandingTasksExist: task.SkipIfOutstandingTasksExist,
+		TaskDefinition:              domainTaskDefToPersistable(&task.TaskDefinition),
+		IsDeleted:                   bool(task.IsDeleted),
+		LoadedAt:                    (*time.Time)(task.LoadedAt),
 		Metadata: common.PersistedMetadata{
 			CreatedAt:  time.Time(task.Metadata.CreatedAt),
 			ModifiedAt: time.Time(at),
@@ -583,11 +586,12 @@ func domainTaskDefToPersistable(def *recurring.TaskDefinition) persistedRecurrin
 
 func persistedToDomain(id task.RecurringTaskId, data *persistedRecurringTaskData, version metadata.Version) recurring.Task {
 	return recurring.Task{
-		ID:                 id,
-		ScheduleExpression: recurring.ScheduleExpression(data.ScheduleExpression),
-		TaskDefinition:     persistedTaskDefToDomainTaskDef(&data.TaskDefinition),
-		IsDeleted:          recurring.IsDeleted(data.IsDeleted),
-		LoadedAt:           (*recurring.LoadedAt)(data.LoadedAt),
+		ID:                          id,
+		ScheduleExpression:          recurring.ScheduleExpression(data.ScheduleExpression),
+		SkipIfOutstandingTasksExist: data.SkipIfOutstandingTasksExist,
+		TaskDefinition:              persistedTaskDefToDomainTaskDef(&data.TaskDefinition),
+		IsDeleted:                   recurring.IsDeleted(data.IsDeleted),
+		LoadedAt:                    (*recurring.LoadedAt)(data.LoadedAt),
 		Metadata: metadata.Metadata{
 			CreatedAt:  metadata.CreatedAt(data.Metadata.CreatedAt),
 			ModifiedAt: metadata.ModifiedAt(data.Metadata.ModifiedAt),

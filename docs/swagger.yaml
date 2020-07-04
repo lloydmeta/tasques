@@ -43,6 +43,15 @@ definitions:
           some support for simple macros
         example: '@every 1m'
         type: string
+      skip_if_outstanding_tasks_exist:
+        default: false
+        description: |-
+          Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
+          that belong to this Recurring Task.
+
+          If a Recurring Tasks skips scheduling because of outstanding Tasks, we will wait until its *next* scheduled
+          time slot (according to its schedule expression) before re-attempting to schedule.
+        type: boolean
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'
         description: The Task to insert at intervals defined by ScheduleExpression
@@ -61,7 +70,7 @@ definitions:
         type: string
       loaded_at:
         description: |-
-          When this recurring Task was last acknoledged and _loaded_ by a Tasques server for later
+          When this recurring Task was last acknowledged and _loaded_ by a Tasques server for later
           automatic enqueueing
         type: string
       metadata:
@@ -73,6 +82,15 @@ definitions:
           some support for simple macros
         example: '@every 1m'
         type: string
+      skip_if_outstanding_tasks_exist:
+        default: false
+        description: |-
+          Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
+          that belong to this Recurring Task.
+
+          If a Recurring Tasks skips scheduling because of outstanding Tasks, we will wait until its *next* scheduled
+          time slot (according to its schedule expression) before re-attempting to schedule.
+        type: boolean
       task_definition:
         $ref: '#/definitions/recurring.TaskDefinition'
         description: The Task to insert at intervals defined by ScheduleExpression

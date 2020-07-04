@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/golang/groupcache/lru"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
@@ -25,8 +28,13 @@ var TasquesArchiveIndex = ".tasques_archive"
 
 type EsService struct {
 	client   *elasticsearch.Client
-	settings config.TasksDefaults
-	getUTC   func() time.Time // for mocking
+	settings config.Tasks
+
+	mu sync.Mutex
+	// This is an thread-unsafe cache, all access needs to be wrapped via the above mutex
+	queueToLastTouchedTimes *lru.Cache
+
+	getUTC func() time.Time // for mocking
 }
 
 // For testing
@@ -34,10 +42,24 @@ func (e *EsService) SetUTCGetter(getter func() time.Time) {
 	e.getUTC = getter
 }
 
-func NewService(client *elasticsearch.Client, settings config.TasksDefaults) task.Service {
-	return &EsService{client: client, settings: settings, getUTC: func() time.Time {
-		return time.Now().UTC()
-	}}
+func (e *EsService) tasksDefaultsSettings() *config.TasksDefaults {
+	return &e.settings.Defaults
+}
+
+func (e *EsService) queuesSettings() *config.Queues {
+	return &e.settings.Queues
+}
+
+func NewService(client *elasticsearch.Client, settings config.Tasks) task.Service {
+	queueToLastTouchedTimes := lru.New(int(settings.Queues.LastActivityTrackerMaxSize))
+	return &EsService{
+		client:                  client,
+		settings:                settings,
+		mu:                      sync.Mutex{},
+		queueToLastTouchedTimes: queueToLastTouchedTimes,
+		getUTC: func() time.Time {
+			return time.Now().UTC()
+		}}
 }
 
 func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Task, error) {
@@ -49,7 +71,7 @@ func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Ta
 		Id:                string(taskId),
 		RetryTimes:        uint(newTask.RetryTimes),
 		Queue:             string(newTask.Queue),
-		RemainingAttempts: uint(newTask.RetryTimes + 1), // even with 0 retries, we want 1 attempt
+		RemainingAttempts: uint(newTask.RetryTimes) + 1, // even with 0 retries, we want 1 attempt
 		Kind:              string(newTask.Kind),
 		State:             task.QUEUED,
 		RunAt:             (time.Time)(newTask.RunAt),
@@ -157,9 +179,9 @@ func (e *EsService) Claim(ctx context.Context, workerId worker.Id, queues []queu
 //
 // In all cases, the min claim retry wait is respected, so as to not flood the ES server with requests.
 func (e *EsService) retryWait(reqBlockFor time.Duration) time.Duration {
-	retryWait := e.settings.BlockForRetryMinWait
-	if e.settings.BlockForRetryMaxRetries > 0 {
-		evenRetryWait := time.Duration(uint64(reqBlockFor.Nanoseconds())/uint64(e.settings.BlockForRetryMaxRetries)) * time.Nanosecond
+	retryWait := e.tasksDefaultsSettings().BlockForRetryMinWait
+	if e.tasksDefaultsSettings().BlockForRetryMaxRetries > 0 {
+		evenRetryWait := time.Duration(uint64(reqBlockFor.Nanoseconds())/uint64(e.tasksDefaultsSettings().BlockForRetryMaxRetries)) * time.Nanosecond
 		if evenRetryWait > retryWait {
 			retryWait = evenRetryWait
 		}
@@ -177,7 +199,7 @@ func (e *EsService) ReportIn(ctx context.Context, workerId worker.Id, queue queu
 	}
 	result, err := runUpdate()
 	timesRetried := uint(0)
-	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.settings.VersionConflictRetryTimes {
+	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.tasksDefaultsSettings().VersionConflictRetryTimes {
 		timesRetried++
 		result, err = runUpdate()
 	}
@@ -185,13 +207,13 @@ func (e *EsService) ReportIn(ctx context.Context, workerId worker.Id, queue queu
 }
 
 func (e *EsService) MarkDone(ctx context.Context, workerId worker.Id, queue queue.Name, taskId task.Id, success *task.Success) (*task.Task, error) {
-	return e.markComplete(ctx, workerId, queue, taskId, func(targetTask *task.Task, at task.CompletedAt) error {
+	return e.markComplete(ctx, queue, taskId, func(targetTask *task.Task, at task.CompletedAt) error {
 		return targetTask.IntoDone(workerId, at, success)
 	})
 }
 
 func (e *EsService) MarkFailed(ctx context.Context, workerId worker.Id, queue queue.Name, taskId task.Id, failure *task.Failure) (*task.Task, error) {
-	return e.markComplete(ctx, workerId, queue, taskId, func(targetTask *task.Task, at task.CompletedAt) error {
+	return e.markComplete(ctx, queue, taskId, func(targetTask *task.Task, at task.CompletedAt) error {
 		return targetTask.IntoFailed(workerId, at, failure)
 	})
 }
@@ -205,7 +227,7 @@ func (e *EsService) UnClaim(ctx context.Context, workerId worker.Id, queue queue
 	}
 	result, err := runUpdate()
 	timesRetried := uint(0)
-	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.settings.VersionConflictRetryTimes {
+	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.tasksDefaultsSettings().VersionConflictRetryTimes {
 		timesRetried++
 		result, err = runUpdate()
 	}
@@ -353,8 +375,121 @@ func processScrollResp(rawResp *esapi.Response) (*tasksWithScrollId, error) {
 	}
 }
 
+func (e *EsService) RefreshAsNeeded(ctx context.Context, name queue.Name) error {
+	// Note don't do locking in this method; we do it in the methods that actually read from the
+	// needs refreshing map. This keeps the locking _short_ so that we can mark touched
+	// from other methods quickly. The actual avoidance of refreshing is a best effort optimisation anyways
+	// currently exclusively for Recurring Tasks. so it's not worth it to to make a huge effort
+	// there
+	if e.needsRefreshing(name) {
+		refreshReq := esapi.IndicesRefreshRequest{
+			Index:             []string{string(name)},
+			AllowNoIndices:    esapi.BoolPtr(true),
+			IgnoreUnavailable: esapi.BoolPtr(true),
+		}
+		rawResp, err := refreshReq.Do(ctx, e.client)
+		if err != nil {
+			return common.ElasticsearchErr{Underlying: err}
+		}
+		defer rawResp.Body.Close()
+		respStatus := rawResp.StatusCode
+		switch {
+		case 200 <= respStatus && respStatus <= 299:
+			e.markTouched(name)
+			return nil
+		default:
+			return common.UnexpectedEsStatusError(rawResp)
+		}
+	} else {
+		return nil
+	}
+}
+
+func (e *EsService) OutstandingTasksCount(ctx context.Context, queue queue.Name, recurringTaskId task.RecurringTaskId) (uint, error) {
+	searchBody := buildOutstandingTasksCountQuery(recurringTaskId)
+	searchBodyBytes, err := json.Marshal(searchBody)
+	if err != nil {
+		return 0, common.JsonSerdesErr{Underlying: []error{err}}
+	}
+
+	countRequest := esapi.CountRequest{
+		Index:             []string{string(BuildIndexName(queue))},
+		Body:              bytes.NewReader(searchBodyBytes),
+		AllowNoIndices:    esapi.BoolPtr(true),
+		IgnoreUnavailable: esapi.BoolPtr(true),
+	}
+	rawResp, err := countRequest.Do(ctx, e.client)
+	if err != nil {
+		return 0, common.ElasticsearchErr{Underlying: err}
+	}
+	defer rawResp.Body.Close()
+	switch rawResp.StatusCode {
+	case 200:
+		var countResp common.EsCountResponse
+		if err := json.NewDecoder(rawResp.Body).Decode(&countResp); err != nil {
+			return 0, common.JsonSerdesErr{Underlying: []error{err}}
+		}
+		return countResp.Count, nil
+	default:
+		return 0, common.UnexpectedEsStatusError(rawResp)
+	}
+}
+
+func (e *EsService) markTouched(name queue.Name) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	// Explicit type ascription because we need to cast below...thanks Golang for not having generics
+	var now time.Time = e.getUTC()
+	e.queueToLastTouchedTimes.Add(name, now)
+}
+
+func (e *EsService) markAllTouched(names []queue.Name) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	// Explicit type ascription because we need to cast below...thanks Golang for not having generics
+	var now time.Time = e.getUTC()
+	for _, name := range names {
+		e.queueToLastTouchedTimes.Add(name, now)
+	}
+}
+
+func (e *EsService) needsRefreshing(name queue.Name) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if lastTouchedInterface, ok := e.queueToLastTouchedTimes.Get(name); ok {
+		// The nasty cast. Thanks for "keeping it simple", Golang and not supporting Generics
+		// /sarcasm.
+		if lastTouched, ok := lastTouchedInterface.(time.Time); ok {
+			now := e.getUTC()
+			diff := now.Sub(lastTouched)
+			needsRefresh := diff > e.queuesSettings().RefreshIfLastTouchedOver
+			if log.Debug().Enabled() {
+				log.Debug().
+					Str("queue", string(name)).
+					Time("now", now).
+					Time("lastTouched", lastTouched).
+					Dur("shouldRefreshIfDiffBiggerThan", e.queuesSettings().RefreshIfLastTouchedOver).
+					Dur("diff", diff).
+					Bool("needsRefresh", needsRefresh).
+					Msg("Check if queue needs refreshing")
+			}
+			return needsRefresh
+		} else {
+			log.Error().Msg("Somehow got a class cast error accessing an internal untyped map. FML.")
+			return true
+		}
+	} else {
+		if log.Debug().Enabled() {
+			log.Debug().
+				Str("queue", string(name)).
+				Msg("No entry in queueToLastTouchedTimes, returning true")
+		}
+		return true
+	}
+}
+
 // Helper to mark a task as completed (success or failed)
-func (e *EsService) markComplete(ctx context.Context, workerId worker.Id, queue queue.Name, taskId task.Id, mutate func(task *task.Task, at task.CompletedAt) error) (*task.Task, error) {
+func (e *EsService) markComplete(ctx context.Context, queue queue.Name, taskId task.Id, mutate func(task *task.Task, at task.CompletedAt) error) (*task.Task, error) {
 	runUpdate := func() (*task.Task, error) {
 		// unlike reporting in, when completing, we always try to complete it with a newer date because it
 		// should be the last thing that happened
@@ -365,7 +500,7 @@ func (e *EsService) markComplete(ctx context.Context, workerId worker.Id, queue 
 	}
 	result, err := runUpdate()
 	timesRetried := uint(0)
-	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.settings.VersionConflictRetryTimes {
+	if _, isVersionConflict := err.(task.InvalidVersion); isVersionConflict && timesRetried < e.tasksDefaultsSettings().VersionConflictRetryTimes {
 		timesRetried++
 		result, err = runUpdate()
 	}
@@ -445,7 +580,7 @@ func (e *EsService) searchAndClaim(ctx context.Context, workerId worker.Id, queu
 	var claimed []task.Task
 
 	// Search for unclaimed Tasks
-	searchLimit := e.settings.ClaimAmountSearchMultiplier * desiredTasks
+	searchLimit := e.tasksDefaultsSettings().ClaimAmountSearchMultiplier * desiredTasks
 	var searchResults []task.Task
 	var err error
 	firstTry := true
@@ -461,6 +596,7 @@ func (e *EsService) searchAndClaim(ctx context.Context, workerId worker.Id, queu
 		}
 		firstTry = false
 	}
+	e.markAllTouched(queues)
 
 	/*
 	 * Try to claim the number of Tasks we want from the Search response, and keep looping through a window until we
@@ -1122,6 +1258,47 @@ func buildArchivableSearchBody(archiveFinishedBefore time.Time, pageSize uint) j
 										{
 											"term": jsonObjMap{
 												"state": task.DEAD.String(),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildOutstandingTasksCountQuery(recurringTaskId task.RecurringTaskId) jsonObjMap {
+	return jsonObjMap{
+		"query": jsonObjMap{
+			"bool": jsonObjMap{
+				"filter": jsonObjMap{
+					"bool": jsonObjMap{
+						"must": []jsonObjMap{
+							{
+								"term": jsonObjMap{
+									"recurring_task_id.keyword": string(recurringTaskId),
+								},
+							},
+							{
+								"bool": jsonObjMap{
+									"should": []jsonObjMap{
+										{
+											"term": jsonObjMap{
+												"state": task.QUEUED.String(), // just queued
+											},
+										},
+										{
+											"term": jsonObjMap{
+												"state": task.FAILED.String(), // we can retry
+											},
+										},
+										{
+											"term": jsonObjMap{
+												"state": task.CLAIMED.String(), // is claimed
 											},
 										},
 									},

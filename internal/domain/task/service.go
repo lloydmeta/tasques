@@ -74,6 +74,19 @@ type Service interface {
 	//
 	// Note that this method is meant to be idempotent, so errors can be ignored or handled by simply logging
 	ArchiveOldTasks(ctx context.Context, archiveCompletedBefore CompletedAt, scrollSize uint, scrollTtl time.Duration) error
+
+	// This refreshes a given Queue so that the next time an op is carried out on it, the server is guaranteed
+	// to get the latest information on the Tasks that are in that Queue.
+	//
+	// Internally, an attempt is made to _not_ refresh if the last search or refresh was carried out on the given
+	// Queue within a given configurable time frame *by this process*. This is a "best effort" attempt to reduce
+	// the strain on the server, but can be improved later if the count is shared somehow.
+	RefreshAsNeeded(ctx context.Context, queue queue.Name) error
+
+	// Counts the number of outstanding Tasks in the given Queue that belong to a given RecurringTaskId
+	//
+	// Outstanding means not DONE or DEAD that are runnable
+	OutstandingTasksCount(ctx context.Context, queue queue.Name, recurringTaskId RecurringTaskId) (uint, error)
 }
 
 // <-- Domain Errors

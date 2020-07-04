@@ -66,7 +66,7 @@ func NewComponents(config *config.App) (*Components, error) {
 		httpClient := http.Client{}
 		setup := NewSetup(&httpClient, esClient, config)
 
-		tasksService := infraTask.NewService(esClient, config.Tasks.Defaults)
+		tasksService := infraTask.NewService(esClient, config.Tasks)
 		tasksController := taskController.New(tasksService, config.Tasks.Defaults)
 
 		tasksRoutesHandler := tasks.RoutesHandler{

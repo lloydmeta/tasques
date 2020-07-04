@@ -46,6 +46,12 @@ type ApmClient struct {
 
 type Tasks struct {
 	Defaults TasksDefaults `json:"defaults" mapstructure:"defaults"`
+	Queues   Queues        `json:"queues" mapstructure:"queues"`
+}
+
+type Queues struct {
+	LastActivityTrackerMaxSize uint          `json:"last_activity_tracker_max_size" mapstructure:"last_activity_tracker_max_size"`
+	RefreshIfLastTouchedOver   time.Duration `json:"refresh_if_last_touched_over" mapstructure:"refresh_if_last_touched_over"`
 }
 
 type TasksDefaults struct {

@@ -221,9 +221,12 @@ var TasquesRecurringTasksTemplate = NewTemplate(
 				"fields": Json{
 					"keyword": Json{
 						"type":         "keyword",
-						"ignore_above": 256,
+						"ignore_above": 512,
 					},
 				},
+			},
+			"skip_if_outstanding_tasks_exist": Json{
+				"type": "boolean",
 			},
 			"task_definition": Json{
 				"properties": Json{
@@ -232,7 +235,7 @@ var TasquesRecurringTasksTemplate = NewTemplate(
 						"fields": Json{
 							"keyword": Json{
 								"type":         "keyword",
-								"ignore_above": 256,
+								"ignore_above": 512,
 							},
 						},
 					},
@@ -255,7 +258,7 @@ var TasquesRecurringTasksTemplate = NewTemplate(
 						"fields": Json{
 							"keyword": Json{
 								"type":         "keyword",
-								"ignore_above": 256,
+								"ignore_above": 512,
 							},
 						},
 					},
@@ -280,7 +283,7 @@ func baseTaskMappings() Json {
 				"fields": Json{
 					"keyword": Json{
 						"type":         "keyword",
-						"ignore_above": 256,
+						"ignore_above": 512,
 					},
 				},
 			},
@@ -289,7 +292,7 @@ func baseTaskMappings() Json {
 				"fields": Json{
 					"keyword": Json{
 						"type":         "keyword",
-						"ignore_above": 256,
+						"ignore_above": 512,
 					},
 				},
 			},
@@ -304,7 +307,7 @@ func baseTaskMappings() Json {
 				"fields": Json{
 					"keyword": Json{
 						"type":         "keyword",
-						"ignore_above": 256,
+						"ignore_above": 512,
 					},
 				},
 			},
@@ -334,12 +337,12 @@ func baseTaskMappings() Json {
 			"last_claimed": Json{
 				"properties": Json{
 					"worker_id": Json{
-						// Allows use to search by thisl
+						// Allows use to search by this
 						"type": "text",
 						"fields": Json{
 							"keyword": Json{
 								"type":         "keyword",
-								"ignore_above": 256,
+								"ignore_above": 512,
 							},
 						},
 					},
@@ -382,7 +385,7 @@ func baseTaskMappings() Json {
 				"fields": Json{
 					"keyword": Json{
 						"type":         "keyword",
-						"ignore_above": 256,
+						"ignore_above": 512,
 					},
 				},
 			},

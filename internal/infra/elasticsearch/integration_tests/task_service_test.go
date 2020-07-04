@@ -25,15 +25,21 @@ import (
 func buildTasksService() task.Service {
 	return task2.NewService(
 		esClient,
-		config.TasksDefaults{
-			BlockFor:                    3 * time.Second,
-			BlockForRetryMinWait:        10 * time.Millisecond,
-			BlockForRetryMaxRetries:     100,
-			WorkerProcessingTimeout:     15 * time.Minute,
-			ClaimAmount:                 5,
-			ClaimAmountSearchMultiplier: 5,
-			RetryTimes:                  50,
-			VersionConflictRetryTimes:   500,
+		config.Tasks{
+			Queues: config.Queues{
+				LastActivityTrackerMaxSize: 1000,
+				RefreshIfLastTouchedOver:   1 * time.Second,
+			},
+			Defaults: config.TasksDefaults{
+				BlockFor:                    3 * time.Second,
+				BlockForRetryMinWait:        10 * time.Millisecond,
+				BlockForRetryMaxRetries:     100,
+				WorkerProcessingTimeout:     15 * time.Minute,
+				ClaimAmount:                 5,
+				ClaimAmountSearchMultiplier: 5,
+				RetryTimes:                  50,
+				VersionConflictRetryTimes:   500,
+			},
 		},
 	)
 }
@@ -542,7 +548,7 @@ func Test_esTaskService_Claim(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				_ = seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
+				_ = seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10, nil)
 			}
 
 			claimed, err := service.Claim(ctx, tt.args.workerId, tt.args.queuesToClaimFrom, tt.args.numberToClaim, blockFor)
@@ -575,7 +581,7 @@ func Test_esTaskService_Claim_with_parallel_completing_claimers(t *testing.T) {
 
 	queueName := queue.Name("competing_parallel_claimers")
 
-	seededTasks := seedTasks(t, service, tasksToSeed, queueName, 10)
+	seededTasks := seedTasks(t, service, tasksToSeed, queueName, 10, nil)
 	assert.Len(t, seededTasks, tasksToSeed)
 
 	var waitGroup sync.WaitGroup
@@ -742,7 +748,7 @@ func Test_esTaskService_ReportIn(t *testing.T) {
 			var seeded []task.Task
 			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
+				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10, nil)
 				seeded = append(seeded, created...)
 
 			}
@@ -907,7 +913,7 @@ func Test_esTaskService_MarkDone(t *testing.T) {
 			var seeded []task.Task
 			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
+				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10, nil)
 				seeded = append(seeded, created...)
 			}
 
@@ -1071,7 +1077,7 @@ func Test_esTaskService_MarkFailed(t *testing.T) {
 			var seeded []task.Task
 			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
+				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10, nil)
 				seeded = append(seeded, created...)
 			}
 
@@ -1235,7 +1241,7 @@ func Test_esTaskService_UnClaim(t *testing.T) {
 			var seeded []task.Task
 			service := buildTasksService()
 			for _, queueToSeed := range tt.args.queuesToSeed {
-				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10)
+				created := seedTasks(t, service, tt.args.tasksToSeedPerQueue, queueToSeed, 10, nil)
 				seeded = append(seeded, created...)
 			}
 
@@ -1281,7 +1287,7 @@ func Test_esTaskService_FailTimedOutTasks(t *testing.T) {
 	service := buildTasksService()
 
 	queueToSeed := queue.Name("claimed-tasks-to-expire")
-	seededClaimedTasks := seedClaimedTasks(t, service, 100, queueToSeed, 10)
+	seededClaimedTasks := seedClaimedTasks(t, service, 100, queueToSeed, 10, nil)
 	assert.True(t, len(seededClaimedTasks) > 0)
 
 	// Not yet expired
@@ -1326,7 +1332,7 @@ func Test_esTaskService_ArchiveOldTasks(t *testing.T) {
 	service := buildTasksService()
 
 	queueToSeed := queue.Name("claimed-tasks-to-expire")
-	seededClaimedTasks := seedClaimedTasks(t, service, 100, queueToSeed, 0)
+	seededClaimedTasks := seedClaimedTasks(t, service, 100, queueToSeed, 0, nil)
 	assert.True(t, len(seededClaimedTasks) > 0)
 
 	seededDoneTasks := make([]task.Task, 0, len(seededClaimedTasks))
@@ -1389,9 +1395,112 @@ func Test_esTaskService_ArchiveOldTasks(t *testing.T) {
 
 }
 
+func Test_esTaskService_RefreshAsNeeded_Non_existent_Queue(t *testing.T) {
+	service := buildTasksService()
+
+	err := service.RefreshAsNeeded(ctx, "some-task-queue-that-doesnt-exist")
+	assert.NoError(t, err)
+}
+
+func Test_esTaskService_RefreshAsNeeded_existent_Queue(t *testing.T) {
+	service := buildTasksService()
+
+	queueToSeed := queue.Name("some-queue-that-will-exist-tasks-to-expire")
+	seeded := seedClaimedTasks(t, service, 10, queueToSeed, 10, nil)
+	assert.Greater(t, len(seeded), 0)
+
+	err := service.RefreshAsNeeded(ctx, queueToSeed)
+	assert.NoError(t, err)
+}
+
+func Test_esTaskService_OutstandingTasksCount_Non_existent_Queue(t *testing.T) {
+	service := buildTasksService()
+	queueName := queue.Name("some-queue-that-does-not-exist")
+	recurringId := task.RecurringTaskId("recurring_task_id")
+	count, err := service.OutstandingTasksCount(ctx, queueName, recurringId)
+	assert.NoError(t, err)
+	assert.EqualValues(t, 0, count)
+}
+
+func Test_esTaskService_OutstandingTasksCount_Non_existent_Queue_RecurringTaskId(t *testing.T) {
+	service := buildTasksService()
+	queueName := queue.Name("some-queue-that-will-soon-exist")
+	recurringId1 := task.RecurringTaskId("recurring_task_id1")
+	recurringId2 := task.RecurringTaskId("recurring_task_id2")
+	seedTasks(t, service, 1, queueName, 10, &recurringId1)
+	assert.Eventually(t, func() bool {
+		err := service.RefreshAsNeeded(ctx, queueName)
+		assert.NoError(t, err)
+		count, err := service.OutstandingTasksCount(ctx, queueName, recurringId1)
+		assert.NoError(t, err)
+		t.Logf("Count %v", count)
+		return uint(1) == count
+	}, 10*time.Second, 100*time.Millisecond, "The created Task should be counted as outstanding")
+	count, err := service.OutstandingTasksCount(ctx, queueName, recurringId2)
+	assert.NoError(t, err)
+	assert.EqualValues(t, 0, count)
+}
+
+func Test_esTaskService_OutstandingTasksCount_Queue_with_outstanding_tasks(t *testing.T) {
+	service := buildTasksService()
+	queueName := queue.Name("some-queue-that-will-have-tasks")
+	recurringId := task.RecurringTaskId("recurring_task_id")
+
+	claimedTasksCount := 10
+	seededClaimedTasks := seedClaimedTasks(t, service, claimedTasksCount, queueName, 0, &recurringId)
+	assert.Eventually(t, func() bool {
+		err := service.RefreshAsNeeded(ctx, queueName)
+		assert.NoError(t, err)
+		count, err := service.OutstandingTasksCount(ctx, queueName, recurringId)
+		assert.NoError(t, err)
+		t.Logf("Count %v", count)
+		return uint(claimedTasksCount) == count
+	}, 10*time.Second, 100*time.Millisecond, "The Claimed Tasks should be counted as outstanding")
+
+	newTasksCount := 10
+	seedTasks(t, service, newTasksCount, queueName, 10, &recurringId)
+
+	assert.Eventually(t, func() bool {
+		err := service.RefreshAsNeeded(ctx, queueName)
+		assert.NoError(t, err)
+		count, err := service.OutstandingTasksCount(ctx, queueName, recurringId)
+		assert.NoError(t, err)
+		t.Logf("Count %v", count)
+		return uint(newTasksCount+claimedTasksCount) == count
+	}, 10*time.Second, 100*time.Millisecond, "The New Tasks *and* Claimed Tasks should be counted as outstanding")
+
+	for idx, claimedTask := range seededClaimedTasks {
+		t.Logf("claimed [%v] retryTimes [%v]", claimedTask, claimedTask.RetryTimes)
+		if idx%2 == 0 {
+			resp, err := service.MarkFailed(ctx, workerId, claimedTask.Queue, claimedTask.ID, nil)
+			t.Logf("Fail resp [%v] retrytimes [%v]", resp, resp.RetryTimes)
+			if err != nil {
+				t.Error(err)
+			}
+		} else {
+			resp, err := service.MarkDone(ctx, workerId, claimedTask.Queue, claimedTask.ID, nil)
+			t.Logf("Done resp [%v] retrytimes [%v]", resp, resp.RetryTimes)
+			if err != nil {
+				t.Error(err)
+			}
+		}
+
+		assert.Eventually(t, func() bool {
+			err := service.RefreshAsNeeded(ctx, queueName)
+			assert.NoError(t, err)
+			count, err := service.OutstandingTasksCount(ctx, queueName, recurringId)
+			assert.NoError(t, err)
+			t.Logf("Idx %v", idx)
+			t.Logf("Expected %v", newTasksCount+claimedTasksCount-(idx+1))
+			t.Logf("Count %v", count)
+			return uint(newTasksCount+claimedTasksCount-(idx+1)) == count
+		}, 10*time.Second, 100*time.Millisecond, "The number of Outstanding Tasks should decrease as Tasks get Done or Failed unretryably")
+	}
+}
+
 var seededProcessingTimeout = 15 * time.Minute
 
-func seedTasks(t *testing.T, service task.Service, numberToSeed int, queue queue.Name, retryTimes task.RetryTimes) []task.Task {
+func seedTasks(t *testing.T, service task.Service, numberToSeed int, queue queue.Name, retryTimes task.RetryTimes, recurringTaskId *task.RecurringTaskId) []task.Task {
 	runAt := task.RunAt(time.Now().UTC())
 	var createdTasks []task.Task
 
@@ -1404,6 +1513,7 @@ func seedTasks(t *testing.T, service task.Service, numberToSeed int, queue queue
 		RunAt:             runAt,
 		Args:              nil,
 		Context:           nil,
+		RecurringTaskId:   recurringTaskId,
 	}
 	for i := 0; i < numberToSeed; i++ {
 		created, err := service.Create(ctx, &toCreate)
@@ -1417,8 +1527,8 @@ func seedTasks(t *testing.T, service task.Service, numberToSeed int, queue queue
 
 var workerId = worker.Id("werk")
 
-func seedClaimedTasks(t *testing.T, service task.Service, numberToSeed int, queueName queue.Name, retryTimes task.RetryTimes) []task.Task {
-	created := seedTasks(t, service, numberToSeed, queueName, retryTimes)
+func seedClaimedTasks(t *testing.T, service task.Service, numberToSeed int, queueName queue.Name, retryTimes task.RetryTimes, recurringTaskId *task.RecurringTaskId) []task.Task {
+	created := seedTasks(t, service, numberToSeed, queueName, retryTimes, recurringTaskId)
 	var claimed []task.Task
 	for len(claimed) != len(created) {
 		r, err := service.Claim(ctx, workerId, []queue.Name{queueName}, uint(len(created)), 5*time.Second)

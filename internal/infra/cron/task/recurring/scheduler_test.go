@@ -61,6 +61,8 @@ func Test_schedulerImpl_Schedule(t *testing.T) {
 		assert.True(t, taskIdPresent)
 	}
 	scheduler.Stop()
+	assert.EqualValues(t, 0, tasksService.RefreshAsNeededCalled)
+	assert.EqualValues(t, 0, tasksService.OutstandingTasksCountCalled)
 }
 
 func Test_schedulerImpl_Unschedule(t *testing.T) {
@@ -211,4 +213,14 @@ func Test_schedulerImpl_Parse(t *testing.T) {
 			assert.EqualValues(t, cronEquiv, got)
 		})
 	}
+}
+
+var skipIfOutstandingTaskToSchedule = recurring.Task{
+	ID:                          "send-me-an-int",
+	ScheduleExpression:          "@every 1s",
+	SkipIfOutstandingTasksExist: true,
+	TaskDefinition:              recurring.TaskDefinition{},
+	IsDeleted:                   false,
+	LoadedAt:                    nil,
+	Metadata:                    metadata.Metadata{},
 }

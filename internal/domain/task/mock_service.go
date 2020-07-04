@@ -14,24 +14,28 @@ var MockDomainTask = Task{
 }
 
 type MockTasksService struct {
-	CreateCalled            uint
-	CreateOverride          func() (*Task, error)
-	GetCalled               uint
-	GetOverride             func() (*Task, error)
-	ClaimCalled             uint
-	ClaimOverride           func() ([]Task, error)
-	ReportInCalled          uint
-	ReportInOverride        func() (*Task, error)
-	MarkDoneCalled          uint
-	MarkDoneOverride        func() (*Task, error)
-	MarkFailedCalled        uint
-	MarkFailedOverride      func() (*Task, error)
-	UnClaimCalled           uint
-	UnClaimOverride         func() (*Task, error)
-	ReapTimedOutCalled      uint
-	ReapTimedOutOverride    func() error
-	ArchiveOldTasksCalled   uint
-	ArchiveOldTasksOverride func() error
+	CreateCalled                  uint
+	CreateOverride                func() (*Task, error)
+	GetCalled                     uint
+	GetOverride                   func() (*Task, error)
+	ClaimCalled                   uint
+	ClaimOverride                 func() ([]Task, error)
+	ReportInCalled                uint
+	ReportInOverride              func() (*Task, error)
+	MarkDoneCalled                uint
+	MarkDoneOverride              func() (*Task, error)
+	MarkFailedCalled              uint
+	MarkFailedOverride            func() (*Task, error)
+	UnClaimCalled                 uint
+	UnClaimOverride               func() (*Task, error)
+	ReapTimedOutCalled            uint
+	ReapTimedOutOverride          func() error
+	ArchiveOldTasksCalled         uint
+	ArchiveOldTasksOverride       func() error
+	RefreshAsNeededCalled         uint
+	RefreshAsNeededOverride       func() error
+	OutstandingTasksCountCalled   uint
+	OutstandingTasksCountOverride func() (uint, error)
 }
 
 func (m *MockTasksService) Create(ctx context.Context, task *NewTask) (*Task, error) {
@@ -112,5 +116,23 @@ func (m *MockTasksService) ArchiveOldTasks(ctx context.Context, archiveCompleted
 		return m.ArchiveOldTasksOverride()
 	} else {
 		return nil
+	}
+}
+
+func (m *MockTasksService) RefreshAsNeeded(ctx context.Context, name queue.Name) error {
+	m.RefreshAsNeededCalled++
+	if m.RefreshAsNeededOverride != nil {
+		return m.RefreshAsNeededOverride()
+	} else {
+		return nil
+	}
+}
+
+func (m *MockTasksService) OutstandingTasksCount(ctx context.Context, name queue.Name, id RecurringTaskId) (uint, error) {
+	m.OutstandingTasksCountCalled++
+	if m.OutstandingTasksCountOverride != nil {
+		return m.OutstandingTasksCountOverride()
+	} else {
+		return 0, nil
 	}
 }

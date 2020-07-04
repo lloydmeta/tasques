@@ -129,3 +129,7 @@ func (i *EsBulkResponseItemInfo) Version() metadata.Version {
 		PrimaryTerm: metadata.PrimaryTerm(i.PrimaryTerm),
 	}
 }
+
+type EsCountResponse struct {
+	Count uint `json:"count"`
+}
