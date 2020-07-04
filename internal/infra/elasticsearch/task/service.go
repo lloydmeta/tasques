@@ -439,7 +439,8 @@ func (e *EsService) OutstandingTasksCount(ctx context.Context, queue queue.Name)
 func (e *EsService) markTouched(name queue.Name) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	now := e.getUTC()
+	// Explicit type ascription because we need to cast below...thanks Golang for not having generics
+	var now time.Time = e.getUTC()
 	e.queueToLastTouchedTimes.Add(name, now)
 }
 
