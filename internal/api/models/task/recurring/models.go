@@ -45,6 +45,9 @@ type NewTask struct {
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
 	// Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
 	// that belong to this Recurring Task.
+	//
+	// If a Recurring Tasks skips scheduling because of outstanding Tasks, we will wait until its *next* scheduled
+	// time slot (according to its schedule expression) before re-attempting to schedule.
 	SkipIfOutstandingTasksExist *bool `json:"skip_if_outstanding_tasks_exist" default:"false"`
 	// The Task to insert at intervals defined by ScheduleExpression
 	TaskDefinition TaskDefinition `json:"task_definition" binding:"required"`
@@ -68,6 +71,9 @@ type Task struct {
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
 	// Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
 	// that belong to this Recurring Task.
+	//
+	// If a Recurring Tasks skips scheduling because of outstanding Tasks, we will wait until its *next* scheduled
+	// time slot (according to its schedule expression) before re-attempting to schedule.
 	SkipIfOutstandingTasksExist *bool `json:"skip_if_outstanding_tasks_exist" default:"false"`
 	// The Task to insert at intervals defined by ScheduleExpression
 	TaskDefinition TaskDefinition `json:"task_definition" binding:"required"`
