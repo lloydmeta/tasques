@@ -1280,7 +1280,7 @@ func buildOutstandingTasksCountQuery(recurringTaskId task.RecurringTaskId) jsonO
 						"must": []jsonObjMap{
 							{
 								"term": jsonObjMap{
-									"recurring_task_id": string(recurringTaskId),
+									"recurring_task_id.keyword": string(recurringTaskId),
 								},
 							},
 							{
