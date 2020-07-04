@@ -26,14 +26,15 @@ func buildTasksService() task.Service {
 	return task2.NewService(
 		esClient,
 		config.TasksDefaults{
-			BlockFor:                    3 * time.Second,
-			BlockForRetryMinWait:        10 * time.Millisecond,
-			BlockForRetryMaxRetries:     100,
-			WorkerProcessingTimeout:     15 * time.Minute,
-			ClaimAmount:                 5,
-			ClaimAmountSearchMultiplier: 5,
-			RetryTimes:                  50,
-			VersionConflictRetryTimes:   500,
+			BlockFor:                      3 * time.Second,
+			BlockForRetryMinWait:          10 * time.Millisecond,
+			BlockForRetryMaxRetries:       100,
+			WorkerProcessingTimeout:       15 * time.Minute,
+			ClaimAmount:                   5,
+			ClaimAmountSearchMultiplier:   5,
+			RetryTimes:                    50,
+			VersionConflictRetryTimes:     500,
+			QueueRefreshIfLastTouchedOver: 30 * time.Second,
 		},
 	)
 }
@@ -1387,6 +1388,25 @@ func Test_esTaskService_ArchiveOldTasks(t *testing.T) {
 		}
 	}
 
+}
+
+func Test_esTaskService_RefreshAsNeeded_Non_existent_Queue(t *testing.T) {
+
+	service := buildTasksService()
+
+	err := service.RefreshAsNeeded(ctx, "some-task-queue-that-doesnt-exist")
+	assert.NoError(t, err)
+}
+
+func Test_esTaskService_RefreshAsNeeded_existent_Queue(t *testing.T) {
+
+	service := buildTasksService()
+	queueToSeed := queue.Name("some-queue-that-will-exist-tasks-to-expire")
+	seeded := seedClaimedTasks(t, service, 10, queueToSeed, 10)
+	assert.Greater(t, len(seeded), 0)
+
+	err := service.RefreshAsNeeded(ctx, queueToSeed)
+	assert.NoError(t, err)
 }
 
 var seededProcessingTimeout = 15 * time.Minute

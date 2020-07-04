@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/golang/groupcache/lru"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
@@ -23,10 +26,18 @@ import (
 var TasquesQueuePrefix = ".tasques_queue-"
 var TasquesArchiveIndex = ".tasques_archive"
 
+// a hard-coded reasonable default...
+const MaxQueueRefreshTrackerSize = 10000
+
 type EsService struct {
 	client   *elasticsearch.Client
 	settings config.TasksDefaults
-	getUTC   func() time.Time // for mocking
+
+	mu sync.Mutex
+	// This is an thread-unsafe cache, all access needs to be wrapped via the above mutex
+	queueToLastTouchedTimes *lru.Cache
+
+	getUTC func() time.Time // for mocking
 }
 
 // For testing
@@ -35,9 +46,15 @@ func (e *EsService) SetUTCGetter(getter func() time.Time) {
 }
 
 func NewService(client *elasticsearch.Client, settings config.TasksDefaults) task.Service {
-	return &EsService{client: client, settings: settings, getUTC: func() time.Time {
-		return time.Now().UTC()
-	}}
+	queueToLastTouchedTimes := lru.New(MaxQueueRefreshTrackerSize)
+	return &EsService{
+		client:                  client,
+		settings:                settings,
+		mu:                      sync.Mutex{},
+		queueToLastTouchedTimes: queueToLastTouchedTimes,
+		getUTC: func() time.Time {
+			return time.Now().UTC()
+		}}
 }
 
 func (e *EsService) Create(ctx context.Context, newTask *task.NewTask) (*task.Task, error) {
@@ -353,6 +370,88 @@ func processScrollResp(rawResp *esapi.Response) (*tasksWithScrollId, error) {
 	}
 }
 
+func (e *EsService) RefreshAsNeeded(ctx context.Context, name queue.Name) error {
+	// Note don't do locking in this method; we do it in the methods that actually read from the
+	// needs refreshing map. This keeps the locking _short_ so that we can mark touched
+	// from other methods quickly. The actual avoidance of refreshing is a best effort optimisation anyways
+	// currently exclusively for Recurring Tasks. so it's not worth it to to make a huge effort
+	// there
+	if e.needsRefreshing(name) {
+		refreshReq := esapi.IndicesRefreshRequest{
+			Index:             []string{string(name)},
+			AllowNoIndices:    esapi.BoolPtr(true),
+			IgnoreUnavailable: esapi.BoolPtr(true),
+		}
+		rawResp, err := refreshReq.Do(ctx, e.client)
+		if err != nil {
+			return common.ElasticsearchErr{Underlying: err}
+		}
+		defer rawResp.Body.Close()
+		respStatus := rawResp.StatusCode
+		switch {
+		case 200 <= respStatus && respStatus <= 299:
+			e.markTouched(name)
+			return nil
+		default:
+			return common.UnexpectedEsStatusError(rawResp)
+		}
+	} else {
+		return nil
+	}
+}
+
+func (e *EsService) markTouched(name queue.Name) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	now := e.getUTC()
+	e.queueToLastTouchedTimes.Add(name, now)
+}
+
+func (e *EsService) markAllTouched(names []queue.Name) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	// Explicit type ascription because we need to cast below...thanks Golang for not having generics
+	var now time.Time = e.getUTC()
+	for _, name := range names {
+		e.queueToLastTouchedTimes.Add(name, now)
+	}
+}
+
+func (e *EsService) needsRefreshing(name queue.Name) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if lastTouchedInterface, ok := e.queueToLastTouchedTimes.Get(name); ok {
+		// The nasty cast. Thanks for "keeping it simple", Golang and not supporting Generics
+		// /sarcasm.
+		if lastTouched, ok := lastTouchedInterface.(time.Time); ok {
+			now := e.getUTC()
+			diff := now.Sub(lastTouched)
+			needsRefresh := diff > e.settings.QueueRefreshIfLastTouchedOver
+			if log.Debug().Enabled() {
+				log.Debug().
+					Str("queue", string(name)).
+					Time("now", now).
+					Time("lastTouched", lastTouched).
+					Dur("shouldRefreshIfDiffBiggerThan", e.settings.QueueRefreshIfLastTouchedOver).
+					Dur("diff", diff).
+					Bool("needsRefresh", needsRefresh).
+					Msg("Check if queue needs refreshing")
+			}
+			return needsRefresh
+		} else {
+			log.Error().Msg("Somehow got a class cast error accessing an internal untyped map. FML.")
+			return true
+		}
+	} else {
+		if log.Debug().Enabled() {
+			log.Debug().
+				Str("queue", string(name)).
+				Msg("No entry in queueToLastTouchedTimes, returning true")
+		}
+		return true
+	}
+}
+
 // Helper to mark a task as completed (success or failed)
 func (e *EsService) markComplete(ctx context.Context, workerId worker.Id, queue queue.Name, taskId task.Id, mutate func(task *task.Task, at task.CompletedAt) error) (*task.Task, error) {
 	runUpdate := func() (*task.Task, error) {
@@ -461,6 +560,7 @@ func (e *EsService) searchAndClaim(ctx context.Context, workerId worker.Id, queu
 		}
 		firstTry = false
 	}
+	e.markAllTouched(queues)
 
 	/*
 	 * Try to claim the number of Tasks we want from the Search response, and keep looping through a window until we

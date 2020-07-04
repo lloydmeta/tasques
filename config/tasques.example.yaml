@@ -57,6 +57,12 @@ tasques:
         retry_times: 25
         # Number of times to try to atomically update a Task when encountering a version conflict
         version_conflict_retry_times: 500
+        # If a Queue hasn't been touched in over _this_ much time by a given process, a call to refresh the Queue
+        # will result in actually Refreshing that Queue's indices.
+        #
+        # This is mostly an implementation detail around finding outstanding Tasks for scheduling / not scheduling
+        # Recurring Tasks that you don't need to worry too much about unless if you are using that feature
+        queue_refresh_if_last_touched_over: 1m
     recurring: # Settings for recurring server side functions
       # Settings for the leader lock functionalit
       leader_lock:

@@ -32,6 +32,8 @@ type MockTasksService struct {
 	ReapTimedOutOverride    func() error
 	ArchiveOldTasksCalled   uint
 	ArchiveOldTasksOverride func() error
+	RefreshAsNeededCalled   uint
+	RefreshAsNeededOverride func() error
 }
 
 func (m *MockTasksService) Create(ctx context.Context, task *NewTask) (*Task, error) {
@@ -110,6 +112,15 @@ func (m *MockTasksService) ArchiveOldTasks(ctx context.Context, archiveCompleted
 	m.ArchiveOldTasksCalled++
 	if m.ArchiveOldTasksOverride != nil {
 		return m.ArchiveOldTasksOverride()
+	} else {
+		return nil
+	}
+}
+
+func (m *MockTasksService) RefreshAsNeeded(ctx context.Context, name queue.Name) error {
+	m.RefreshAsNeededCalled++
+	if m.RefreshAsNeededOverride != nil {
+		return m.RefreshAsNeededOverride()
 	} else {
 		return nil
 	}

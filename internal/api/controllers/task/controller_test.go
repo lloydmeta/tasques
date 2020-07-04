@@ -551,14 +551,15 @@ func Test_tasksControllerImpl_UnClaim(t *testing.T) {
 }
 
 var tasksConfig = config.TasksDefaults{
-	BlockFor:                    100 * time.Millisecond,
-	BlockForRetryMinWait:        25 * time.Millisecond,
-	BlockForRetryMaxRetries:     100,
-	WorkerProcessingTimeout:     30 * time.Minute,
-	ClaimAmount:                 5,
-	ClaimAmountSearchMultiplier: 10,
-	RetryTimes:                  10,
-	VersionConflictRetryTimes:   50,
+	BlockFor:                      100 * time.Millisecond,
+	BlockForRetryMinWait:          25 * time.Millisecond,
+	BlockForRetryMaxRetries:       100,
+	WorkerProcessingTimeout:       30 * time.Minute,
+	ClaimAmount:                   5,
+	ClaimAmountSearchMultiplier:   10,
+	RetryTimes:                    10,
+	VersionConflictRetryTimes:     50,
+	QueueRefreshIfLastTouchedOver: 30 * time.Second,
 }
 
 var mockApiTask = task.FromDomainTask(&domainTask.MockDomainTask)
