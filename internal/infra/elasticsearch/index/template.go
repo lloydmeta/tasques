@@ -225,6 +225,9 @@ var TasquesRecurringTasksTemplate = NewTemplate(
 					},
 				},
 			},
+			"skip_if_outstanding_tasks_exist": Json{
+				"type": "boolean",
+			},
 			"task_definition": Json{
 				"properties": Json{
 					"kind": Json{

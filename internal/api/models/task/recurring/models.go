@@ -43,6 +43,9 @@ type NewTask struct {
 	ID task.RecurringTaskId `json:"id" binding:"required" example:"repeat-every-minute"`
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
+	// Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
+	// that belong to this Recurring Task.
+	SkipIfOutstandingTasksExist *bool `json:"skip_if_outstanding_tasks_exist" default:"false"`
 	// The Task to insert at intervals defined by ScheduleExpression
 	TaskDefinition TaskDefinition `json:"task_definition" binding:"required"`
 }
@@ -57,15 +60,18 @@ type TaskUpdate struct {
 	TaskDefinition *TaskDefinition `json:"task_definition,omitempty"`
 }
 
-// A persisted recurring TAsk
+// A persisted recurring Task
 type Task struct {
 	// User-defined Id for the recurring Task. Must not collide with other existing ones.
 	ID task.RecurringTaskId `json:"id" binding:"required" example:"repeat-every-minute"`
 	// A schedule expression; can be any valid cron expression, with some support for simple macros
 	ScheduleExpression recurring.ScheduleExpression `json:"schedule_expression" binding:"required,scheduleExpression" example:"@every 1m"`
+	// Whether or not to skip scheduling a Task for this if there are outstanding (not in DONE or DEAD status) Tasks
+	// that belong to this Recurring Task.
+	SkipIfOutstandingTasksExist *bool `json:"skip_if_outstanding_tasks_exist" default:"false"`
 	// The Task to insert at intervals defined by ScheduleExpression
 	TaskDefinition TaskDefinition `json:"task_definition" binding:"required"`
-	// When this recurring Task was last acknoledged and _loaded_ by a Tasques server for later
+	// When this recurring Task was last acknowledged and _loaded_ by a Tasques server for later
 	// automatic enqueueing
 	LoadedAt *time.Time `json:"loaded_at,omitempty"`
 	// Metadata (data about data)
@@ -74,20 +80,28 @@ type Task struct {
 
 // Converts an API model to the domain model
 func (t *NewTask) ToDomainNewTask(defaultRetryTimes uint, defaultProcessingTimeout time.Duration) recurring.NewTask {
+	var skipIfOutstandingTasksExist bool
+	if t.SkipIfOutstandingTasksExist != nil {
+		skipIfOutstandingTasksExist = *t.SkipIfOutstandingTasksExist
+	} else {
+		skipIfOutstandingTasksExist = false
+	}
 	return recurring.NewTask{
-		ID:                 t.ID,
-		ScheduleExpression: t.ScheduleExpression,
-		TaskDefinition:     t.TaskDefinition.ToDomainTaskDefinition(defaultRetryTimes, defaultProcessingTimeout),
+		ID:                          t.ID,
+		ScheduleExpression:          t.ScheduleExpression,
+		SkipIfOutstandingTasksExist: skipIfOutstandingTasksExist,
+		TaskDefinition:              t.TaskDefinition.ToDomainTaskDefinition(defaultRetryTimes, defaultProcessingTimeout),
 	}
 }
 
 func FromDomainTask(task *recurring.Task) Task {
 	return Task{
-		ID:                 task.ID,
-		ScheduleExpression: task.ScheduleExpression,
-		TaskDefinition:     fromDomainTaskDefinition(&task.TaskDefinition),
-		LoadedAt:           (*time.Time)(task.LoadedAt),
-		Metadata:           common.FromDomainMetadata(&task.Metadata),
+		ID:                          task.ID,
+		ScheduleExpression:          task.ScheduleExpression,
+		TaskDefinition:              fromDomainTaskDefinition(&task.TaskDefinition),
+		LoadedAt:                    (*time.Time)(task.LoadedAt),
+		SkipIfOutstandingTasksExist: &task.SkipIfOutstandingTasksExist,
+		Metadata:                    common.FromDomainMetadata(&task.Metadata),
 	}
 }
 

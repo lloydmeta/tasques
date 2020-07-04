@@ -41,9 +41,10 @@ type IsDeleted bool
 // We assume that the ScheduleExpression is valid
 // *before* we persist it
 type NewTask struct {
-	ID                 task.RecurringTaskId
-	ScheduleExpression ScheduleExpression
-	TaskDefinition     TaskDefinition
+	ID                          task.RecurringTaskId
+	ScheduleExpression          ScheduleExpression
+	TaskDefinition              TaskDefinition
+	SkipIfOutstandingTasksExist bool
 }
 
 // The way this is structured is somewhat odd; why soft deletes?
@@ -55,12 +56,13 @@ type NewTask struct {
 // Given good ES integration is an explicit goal, I *think* at this point
 // that it's ok to leak a bit of that into the domain ..
 type Task struct {
-	ID                 task.RecurringTaskId
-	ScheduleExpression ScheduleExpression
-	TaskDefinition     TaskDefinition
-	IsDeleted          IsDeleted
-	LoadedAt           *LoadedAt
-	Metadata           metadata.Metadata
+	ID                          task.RecurringTaskId
+	ScheduleExpression          ScheduleExpression
+	TaskDefinition              TaskDefinition
+	IsDeleted                   IsDeleted
+	LoadedAt                    *LoadedAt
+	SkipIfOutstandingTasksExist bool
+	Metadata                    metadata.Metadata
 }
 
 func (r *Task) UpdateSchedule(expression ScheduleExpression) {

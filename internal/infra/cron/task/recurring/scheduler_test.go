@@ -63,6 +63,48 @@ func Test_schedulerImpl_Schedule(t *testing.T) {
 	scheduler.Stop()
 }
 
+func Test_schedulerImpl_Schedule_skipIfOutstandingTasksExist(t *testing.T) {
+	taskToSchedule := recurring.Task{
+		ID:                 "send-me-an-int",
+		ScheduleExpression: "@every 1s",
+		TaskDefinition:     recurring.TaskDefinition{},
+		IsDeleted:          false,
+		LoadedAt:           nil,
+		Metadata:           metadata.Metadata{},
+	}
+	tasksService := task.MockTasksService{
+		CreateOverride: func() (t *task.Task, err error) {
+			return &task.MockDomainTask, nil
+		},
+		OutstandingTasksCountOverride: func() (u uint, err error) {
+			return 1, nil
+		},
+	}
+	scheduler := &schedulerImpl{
+		cron:          cron.New(cron.WithLocation(time.UTC)),
+		tasksService:  &tasksService,
+		tracer:        tracing.NoopTracer{},
+		idsToEntryIds: make(map[task.RecurringTaskId]cron.EntryID),
+		mu:            sync.Mutex{},
+		getUTC: func() time.Time {
+			return time.Now().UTC()
+		},
+	}
+	scheduler.Start()
+	err := scheduler.Schedule(taskToSchedule)
+	if err != nil {
+		t.Error(err)
+	}
+	scheduler.Stop()
+	time.Sleep(5 * time.Second)
+	assert.GreaterOrEqual(t, uint(1), tasksService.RefreshAsNeededCalled)
+	assert.GreaterOrEqual(t, uint(1), tasksService.OutstandingTasksCountCalled)
+	assert.EqualValues(t, 0, tasksService.CreateCalled)
+	// It should nonetheless be scheduled
+	_, taskIdPresent := scheduler.idsToEntryIds[taskToSchedule.ID]
+	assert.True(t, taskIdPresent)
+}
+
 func Test_schedulerImpl_Unschedule(t *testing.T) {
 	type fields struct {
 		tasksService  task.Service

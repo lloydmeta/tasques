@@ -66,13 +66,51 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 
 		tx := i.tracer.BackgroundTx("recurring-task-enqueue")
 		ctx := tx.Context()
-		_, err := i.tasksService.Create(ctx, i.taskDefToNewTask(task.ID, &task.TaskDefinition))
-		if err != nil {
-			log.Error().
-				Err(err).
-				Str("id", string(task.ID)).
-				Str("expression", string(task.ScheduleExpression)).
-				Msg("Failed to insert new Task at interval")
+
+		if task.SkipIfOutstandingTasksExist {
+			taskQueue := task.TaskDefinition.Queue
+			err := i.tasksService.RefreshAsNeeded(ctx, taskQueue)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("id", string(task.ID)).
+					Str("queue", string(taskQueue)).
+					Msg("Failed to refresh Queue for Recurring Task before looking for outstanding Tasks, proceeding with search")
+			}
+			outstandingTasksCount, err := i.tasksService.OutstandingTasksCount(ctx, taskQueue)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("id", string(task.ID)).
+					Str("queue", string(taskQueue)).
+					Msg("Failed get count of outstanding Tasks for Recurring Task, skipping")
+			} else if outstandingTasksCount > 0 {
+				if log.Debug().Enabled() {
+					log.Debug().
+						Str("id", string(task.ID)).
+						Str("queue", string(taskQueue)).
+						Uint("outstandingTasks", outstandingTasksCount).
+						Msg("Skipping scheduling of Recurring Task because outstanding Tasks exist")
+				}
+			} else {
+				_, err := i.tasksService.Create(ctx, i.taskDefToNewTask(task.ID, &task.TaskDefinition))
+				if err != nil {
+					log.Error().
+						Err(err).
+						Str("id", string(task.ID)).
+						Str("expression", string(task.ScheduleExpression)).
+						Msg("Failed to insert new Task at interval")
+				}
+			}
+		} else {
+			_, err := i.tasksService.Create(ctx, i.taskDefToNewTask(task.ID, &task.TaskDefinition))
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("id", string(task.ID)).
+					Str("expression", string(task.ScheduleExpression)).
+					Msg("Failed to insert new Task at interval")
+			}
 		}
 		tx.End()
 	})

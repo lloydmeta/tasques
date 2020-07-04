@@ -59,7 +59,8 @@ func Test_esRecurringService_verifingPersistedForm(t *testing.T) {
 				},
 			},
 			wantedJson: JsonObj{
-				"schedule_expression": "* * * * *",
+				"schedule_expression":             "* * * * *",
+				"skip_if_outstanding_tasks_exist": false,
 				"task_definition": JsonObj{
 					"queue":              "persisted-form-test",
 					"retry_times":        float64(1),
@@ -78,8 +79,9 @@ func Test_esRecurringService_verifingPersistedForm(t *testing.T) {
 			name: "should persist provided args and context",
 			args: args{
 				toPersist: &recurring.NewTask{
-					ID:                 "persistence-test-2",
-					ScheduleExpression: "* * * * 3",
+					ID:                          "persistence-test-2",
+					ScheduleExpression:          "* * * * 3",
+					SkipIfOutstandingTasksExist: true,
 					TaskDefinition: recurring.TaskDefinition{
 						Queue:             "persisted-form-test",
 						RetryTimes:        1,
@@ -96,7 +98,8 @@ func Test_esRecurringService_verifingPersistedForm(t *testing.T) {
 				},
 			},
 			wantedJson: JsonObj{
-				"schedule_expression": "* * * * 3",
+				"schedule_expression":             "* * * * 3",
+				"skip_if_outstanding_tasks_exist": true,
 				"task_definition": JsonObj{
 					"queue":              "persisted-form-test",
 					"retry_times":        float64(1),
@@ -173,8 +176,9 @@ func Test_esRecurringService_Create(t *testing.T) {
 			setup: nil,
 			args: args{
 				toPersist: &recurring.NewTask{
-					ID:                 "create-test-1",
-					ScheduleExpression: "* * * * *",
+					ID:                          "create-test-1",
+					ScheduleExpression:          "* * * * *",
+					SkipIfOutstandingTasksExist: false,
 					TaskDefinition: recurring.TaskDefinition{
 						Queue:             "persisted-form-test",
 						RetryTimes:        1,
@@ -188,8 +192,9 @@ func Test_esRecurringService_Create(t *testing.T) {
 			},
 			buildWant: func(got *recurring.Task) recurring.Task {
 				return recurring.Task{
-					ID:                 "create-test-1",
-					ScheduleExpression: "* * * * *",
+					ID:                          "create-test-1",
+					ScheduleExpression:          "* * * * *",
+					SkipIfOutstandingTasksExist: false,
 					TaskDefinition: recurring.TaskDefinition{
 						Queue:             "persisted-form-test",
 						RetryTimes:        1,

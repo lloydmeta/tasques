@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/lloydmeta/tasques/internal/api/models/common"
@@ -28,9 +29,10 @@ func durationPtr(u time.Duration) *Duration {
 
 func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 	type fields struct {
-		ID                 task.RecurringTaskId
-		ScheduleExpression recurring.ScheduleExpression
-		TaskDefinition     TaskDefinition
+		ID                          task.RecurringTaskId
+		SkipIfOutstandingTasksExist *bool
+		ScheduleExpression          recurring.ScheduleExpression
+		TaskDefinition              TaskDefinition
 	}
 	type args struct {
 		defaultRetryTimes        uint
@@ -57,8 +59,9 @@ func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 				defaultProcessingTimeout: 1 * time.Hour,
 			},
 			want: recurring.NewTask{
-				ID:                 "hello",
-				ScheduleExpression: "* * * *",
+				ID:                          "hello",
+				ScheduleExpression:          "* * * *",
+				SkipIfOutstandingTasksExist: false,
 				TaskDefinition: recurring.TaskDefinition{
 					Queue:             "q",
 					RetryTimes:        task.RetryTimes(30),
@@ -73,8 +76,9 @@ func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 		{
 			name: "use of fields that are passed",
 			fields: fields{
-				ID:                 "hello2",
-				ScheduleExpression: "0 * * * *",
+				ID:                          "hello2",
+				ScheduleExpression:          "0 * * * *",
+				SkipIfOutstandingTasksExist: esapi.BoolPtr(true),
 				TaskDefinition: TaskDefinition{
 					Queue:             "q2",
 					RetryTimes:        retryTimesPtr(task.RetryTimes(3)),
@@ -90,8 +94,9 @@ func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 				defaultProcessingTimeout: 1 * time.Hour,
 			},
 			want: recurring.NewTask{
-				ID:                 "hello2",
-				ScheduleExpression: "0 * * * *",
+				ID:                          "hello2",
+				ScheduleExpression:          "0 * * * *",
+				SkipIfOutstandingTasksExist: true,
 				TaskDefinition: recurring.TaskDefinition{
 					Queue:             "q2",
 					RetryTimes:        task.RetryTimes(3),
@@ -107,9 +112,10 @@ func TestNewTask_ToDomainNewTask(t1 *testing.T) {
 	for _, tt := range tests {
 		t1.Run(tt.name, func(t1 *testing.T) {
 			t := &NewTask{
-				ID:                 tt.fields.ID,
-				ScheduleExpression: tt.fields.ScheduleExpression,
-				TaskDefinition:     tt.fields.TaskDefinition,
+				ID:                          tt.fields.ID,
+				SkipIfOutstandingTasksExist: tt.fields.SkipIfOutstandingTasksExist,
+				ScheduleExpression:          tt.fields.ScheduleExpression,
+				TaskDefinition:              tt.fields.TaskDefinition,
 			}
 			r := t.ToDomainNewTask(tt.args.defaultRetryTimes, tt.args.defaultProcessingTimeout)
 			assert.EqualValues(t1, tt.want, r)
@@ -147,8 +153,9 @@ func TestFromDomainTask(t *testing.T) {
 							"c": "ctx",
 						},
 					},
-					IsDeleted: false,
-					LoadedAt:  &loadedAt,
+					IsDeleted:                   false,
+					LoadedAt:                    &loadedAt,
+					SkipIfOutstandingTasksExist: true,
 					Metadata: metadata.Metadata{
 						CreatedAt:  metadata.CreatedAt(now),
 						ModifiedAt: metadata.ModifiedAt(now),
@@ -175,7 +182,8 @@ func TestFromDomainTask(t *testing.T) {
 						"c": "ctx",
 					},
 				},
-				LoadedAt: &now,
+				LoadedAt:                    &now,
+				SkipIfOutstandingTasksExist: esapi.BoolPtr(true),
 				Metadata: common.Metadata{
 					CreatedAt:  now,
 					ModifiedAt: now,
