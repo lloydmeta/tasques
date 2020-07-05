@@ -183,14 +183,19 @@ type zeroLogCronLogger struct {
 func (z zeroLogCronLogger) Info(msg string, keysAndValues ...interface{}) {
 	if log.Info().Enabled() {
 		formatted := formatTimeValues(keysAndValues)
-		log.Info().Fields(formatted).Msg(msg)
+		log.Info().
+			Fields(formatted).
+			Msg(msg)
 	}
 }
 
 func (z zeroLogCronLogger) Error(err error, msg string, keysAndValues ...interface{}) {
 	if log.Error().Enabled() {
 		formatted := formatTimeValues(keysAndValues)
-		log.Error().Err(err).Fields(formatted).Msg(msg)
+		log.Error().
+			Err(err).
+			Fields(formatted).
+			Msg(msg)
 	}
 }
 
