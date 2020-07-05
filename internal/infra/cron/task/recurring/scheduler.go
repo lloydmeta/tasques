@@ -1,6 +1,7 @@
 package recurring
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -56,7 +57,7 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 		i.cron.Remove(entryId)
 		delete(i.idsToEntryIds, task.ID)
 	}
-	entryId, err := i.cron.AddFunc(string(task.ScheduleExpression), func() {
+	var cronJob cron.Job = cron.FuncJob(func() {
 		if log.Debug().Enabled() {
 			log.Debug().
 				Str("id", string(task.ID)).
@@ -114,6 +115,17 @@ func (i *schedulerImpl) Schedule(task recurring.Task) error {
 		}
 		tx.End()
 	})
+
+	if task.SkipIfOutstandingTasksExist {
+		cronJob = cron.NewChain(
+			cron.Recover(zeroLogCronLogger{}),
+			cron.DelayIfStillRunning(zeroLogCronLogger{}),
+		).Then(cronJob)
+	} else {
+		cron.NewChain(cron.Recover(zeroLogCronLogger{})).Then(cronJob)
+	}
+
+	entryId, err := i.cron.AddJob(string(task.ScheduleExpression), cronJob)
 	i.idsToEntryIds[task.ID] = entryId
 	return err
 }
@@ -163,4 +175,49 @@ func (i *schedulerImpl) taskDefToNewTask(id task.RecurringTaskId, def *recurring
 		Context:           def.Context,
 		RecurringTaskId:   &id,
 	}
+}
+
+type zeroLogCronLogger struct {
+}
+
+func (z zeroLogCronLogger) Info(msg string, keysAndValues ...interface{}) {
+	if log.Info().Enabled() {
+		formatted := formatTimeValues(keysAndValues)
+		log.Info().
+			Fields(formatted).
+			Msg(msg)
+	}
+}
+
+func (z zeroLogCronLogger) Error(err error, msg string, keysAndValues ...interface{}) {
+	if log.Error().Enabled() {
+		formatted := formatTimeValues(keysAndValues)
+		log.Error().
+			Err(err).
+			Fields(formatted).
+			Msg(msg)
+	}
+}
+
+// formatTimeValues formats any time.Time values as RFC3339 *and*
+// returns the even-odd idx key-value pair slice as a map
+func formatTimeValues(keysAndValues []interface{}) map[string]interface{} {
+	formattedArgs := make(map[string]interface{}, len(keysAndValues)/2)
+	for idx := 0; idx < len(keysAndValues); idx += 2 {
+		var key string
+		if s, ok := keysAndValues[idx].(string); ok {
+			key = s
+		} else {
+			key = fmt.Sprint(keysAndValues[idx])
+		}
+		valueIdx := idx + 1
+		if len(keysAndValues) > valueIdx {
+			value := keysAndValues[valueIdx]
+			if t, ok := value.(time.Time); ok {
+				value = t.Format(time.RFC3339)
+			}
+			formattedArgs[key] = value
+		}
+	}
+	return formattedArgs
 }

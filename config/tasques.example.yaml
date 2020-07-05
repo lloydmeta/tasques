@@ -52,6 +52,13 @@ tasques:
         # This is mostly an implementation detail around finding outstanding Tasks for scheduling / not scheduling
         # Recurring Tasks that you don't need to worry too much about unless if you are using that feature
         refresh_if_last_touched_over: 30s
+        # If a Queue was last refreshed / touched *under* this threshold, we will refresh anyways.
+        #
+        # This is to set a lower threshold for the Queue index refresh optimisation for Recurring Tasks that
+        # have skip_if_outstanding_tasks_exist set to `true` and have a *very* high frequency. In those cases,
+        # we want to refresh the Index more frequently in order to get an up-to-date count of how many Tasks
+        # are outstanding (by default ES refreshes per-second for indices that were searched within the last 30s)
+        refresh_if_last_touched_under: 2s
       defaults:
         # Default block_for for claims
         block_for: 3s

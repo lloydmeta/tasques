@@ -52,6 +52,7 @@ type Tasks struct {
 type Queues struct {
 	LastActivityTrackerMaxSize uint          `json:"last_activity_tracker_max_size" mapstructure:"last_activity_tracker_max_size"`
 	RefreshIfLastTouchedOver   time.Duration `json:"refresh_if_last_touched_over" mapstructure:"refresh_if_last_touched_over"`
+	RefreshIfLastTouchedUnder  time.Duration `json:"refresh_if_last_touched_under" mapstructure:"refresh_if_last_touched_under"`
 }
 
 type TasksDefaults struct {

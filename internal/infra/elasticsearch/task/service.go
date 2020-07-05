@@ -429,6 +429,7 @@ func (e *EsService) OutstandingTasksCount(ctx context.Context, queue queue.Name,
 		if err := json.NewDecoder(rawResp.Body).Decode(&countResp); err != nil {
 			return 0, common.JsonSerdesErr{Underlying: []error{err}}
 		}
+		e.markTouched(queue)
 		return countResp.Count, nil
 	default:
 		return 0, common.UnexpectedEsStatusError(rawResp)
@@ -462,13 +463,14 @@ func (e *EsService) needsRefreshing(name queue.Name) bool {
 		if lastTouched, ok := lastTouchedInterface.(time.Time); ok {
 			now := e.getUTC()
 			diff := now.Sub(lastTouched)
-			needsRefresh := diff > e.queuesSettings().RefreshIfLastTouchedOver
+			needsRefresh := diff > e.queuesSettings().RefreshIfLastTouchedOver || diff <= e.queuesSettings().RefreshIfLastTouchedUnder
 			if log.Debug().Enabled() {
 				log.Debug().
 					Str("queue", string(name)).
 					Time("now", now).
 					Time("lastTouched", lastTouched).
-					Dur("shouldRefreshIfDiffBiggerThan", e.queuesSettings().RefreshIfLastTouchedOver).
+					Dur("shouldRefreshIfDiffGreaterThan", e.queuesSettings().RefreshIfLastTouchedOver).
+					Dur("shouldRefreshIfDiffLessThanOrEqualTo", e.queuesSettings().RefreshIfLastTouchedUnder).
 					Dur("diff", diff).
 					Bool("needsRefresh", needsRefresh).
 					Msg("Check if queue needs refreshing")
