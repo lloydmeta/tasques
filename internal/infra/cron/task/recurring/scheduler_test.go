@@ -1,6 +1,7 @@
 package recurring
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -223,4 +224,64 @@ var skipIfOutstandingTaskToSchedule = recurring.Task{
 	IsDeleted:                   false,
 	LoadedAt:                    nil,
 	Metadata:                    metadata.Metadata{},
+}
+
+func Test_zeroLogCronLogger_Info(t *testing.T) {
+	type args struct {
+		msg           string
+		keysAndValues []interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "with message and key-values",
+			args: args{
+				msg: "hello",
+				keysAndValues: []interface{}{
+					"id", "my id",
+					"date", time.Now(),
+					1, "just one",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			z := zeroLogCronLogger{}
+			z.Info(tt.args.msg, tt.args.keysAndValues...)
+		})
+	}
+}
+
+func Test_zeroLogCronLogger_Error(t *testing.T) {
+	type args struct {
+		err           error
+		msg           string
+		keysAndValues []interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "with message and key-values",
+			args: args{
+				msg: "hello",
+				err: fmt.Errorf("noooo"),
+				keysAndValues: []interface{}{
+					"id", "my id",
+					"date", time.Now(),
+					1, "just one",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			z := zeroLogCronLogger{}
+			z.Error(tt.args.err, tt.args.msg, tt.args.keysAndValues...)
+		})
+	}
 }

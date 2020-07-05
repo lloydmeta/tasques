@@ -29,6 +29,7 @@ func buildTasksService() task.Service {
 			Queues: config.Queues{
 				LastActivityTrackerMaxSize: 1000,
 				RefreshIfLastTouchedOver:   1 * time.Second,
+				RefreshIfLastTouchedUnder:  2 * time.Second,
 			},
 			Defaults: config.TasksDefaults{
 				BlockFor:                    3 * time.Second,

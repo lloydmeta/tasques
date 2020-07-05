@@ -91,7 +91,18 @@ When submitting/creating a Task, you can optionally specify an "id" field, which
 the submission will fail.
 
 Note that idempotency is only for un-archived Tasks: it's possible for a Task to be created with the same Id as another 
-already archived Task. The `archive_older_than` period config can be tweaked if this is an issue. 
+already archived Task. The `archive_older_than` period config can be tweaked if this is an issue.
+
+### Recurring Tasks
+
+Tasques comes with support for scheduling Tasks enqueued at a given cron expression (delegating to [robconfig/cron](https://github.com/robfig/cron),
+so check there for supported expressions).
+
+There is also support to skip enqueueing Tasks for a Recurring Task if there are existing outstanding (not dead or done)
+that belong to it. For high-frequency Recurring Tasks (higher than once every ~2 seconds) this is subject to limitations
+in ES itself, since it refreshes Indices on a [configurable interval](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-refresh.html).
+To address this, you can configure the ES index refresh interval to be more frequent, or you can configure
+tasques itself to be more aggressive about refreshing indices (see `config/tasques.example.yaml` for details).  
 
 ### Dev
 
