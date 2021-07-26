@@ -50,11 +50,10 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/swaggo/gin-swagger v1.2.0
 	github.com/swaggo/swag v1.6.5
-	go.elastic.co/apm v1.7.0
+	go.elastic.co/apm v1.11.0
 	go.elastic.co/apm/module/apmelasticsearch v1.7.0
 	go.elastic.co/apm/module/apmgin v1.7.0
 	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae // indirect
-	golang.org/x/tools v0.0.0-20200228224639-71482053b885 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gopkg.in/ini.v1 v1.52.0 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
